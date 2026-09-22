@@ -4,6 +4,7 @@
   "private": true,
   "description": "Browser extension to observe and inspect analytics network calls.",
   "scripts": {
+    "test": "node --test tests/*.test.js",
     "build:css": "tailwindcss -i styles/tailwind.css -o styles/app.css --minify",
     "build:firefox": "node scripts/build-firefox.mjs",
     "build:chrome": "node scripts/build-chrome.mjs",
