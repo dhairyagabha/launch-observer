@@ -630,7 +630,7 @@ function getValueAtPath(obj, path) {
 function parsePath(path) {
   const tokens = [];
   path.split('.').forEach(segment => {
-    const parts = segment.split(/\\[|\\]/).filter(Boolean);
+    const parts = segment.split(/\[|\]/).filter(Boolean);
     parts.forEach(part => {
       const index = Number(part);
       if (!Number.isNaN(index) && part.trim() !== '') {
