@@ -12,6 +12,24 @@
   let hookReadySent = false;
   let alloyWrapped = false;
   let alloySetterInstalled = false;
+  let watchdog = null;
+  let alloyTimer = null;
+  let hooksInstalled = false;
+
+  // This script runs in the page's own world, so every postMessage is visible
+  // to any other script on the page. Nothing leaves this file unless it both
+  // matches the user's allowlist and belongs to a session they started.
+  const TARGET_ORIGIN = window.location.origin && window.location.origin !== 'null'
+    ? window.location.origin
+    : '*';
+
+  /**
+   * Post a message to the content script listener.
+   * @param {object} message
+   */
+  function emit(message) {
+    window.postMessage(message, TARGET_ORIGIN);
+  }
 
   /**
    * Check URL against the allowlist.
@@ -19,9 +37,11 @@
    * @returns {boolean}
    */
   function matchesAllowlist(url) {
-    if (!allowlistReady) return true;
+    // Until the allowlist is known, nothing is publishable. Callers queue
+    // instead, and the queue is filtered once settings arrive.
+    if (!allowlistReady) return false;
     try {
-      const domain = new URL(url).hostname;
+      const domain = new URL(url, window.location.href).hostname;
       return allowlist.some(entry => {
         const trimmed = entry.trim();
         if (!trimmed) return false;
@@ -34,13 +54,32 @@
   }
 
   /**
+   * Check whether captured data may be published yet.
+   * @returns {boolean}
+   */
+  function canPublish() {
+    return allowlistReady && enableHooks;
+  }
+
+  /**
+   * Whether hooks should be installed right now.
+   *
+   * True before settings arrive (so document_start requests are not missed),
+   * and afterwards only while the user has page hooks enabled.
+   * @returns {boolean}
+   */
+  function hooksShouldRun() {
+    return !allowlistReady || enableHooks;
+  }
+
+  /**
    * Extract requestId query param from URL.
    * @param {string} url
    * @returns {string|null}
    */
   function getRequestId(url) {
     try {
-      const parsed = new URL(url);
+      const parsed = new URL(url, window.location.href);
       return parsed.searchParams.get('requestId');
     } catch {
       return null;
@@ -48,7 +87,7 @@
   }
 
   /**
-   * Post captured payload back to the extension.
+   * Queue a payload captured before settings were known.
    * @param {string} url
    * @param {string} body
    * @param {string} [contentType='']
@@ -68,8 +107,17 @@
     pendingWebsdk.push(payload);
   }
 
+  function clearPending() {
+    pendingPayloads.length = 0;
+    pendingPageContext.length = 0;
+    pendingWebsdk.length = 0;
+  }
+
   function flushPending() {
-    if (!allowlistReady || !enableHooks) return;
+    if (!canPublish()) {
+      clearPending();
+      return;
+    }
     pendingPayloads.splice(0).forEach(item => {
       postPayload(item.url, item.body, item.contentType);
     });
@@ -82,10 +130,12 @@
   }
 
   function postPayload(url, body, contentType = '') {
-    if (!enableHooks) {
-      if (!allowlistReady) enqueuePayload(url, body, contentType);
+    if (!allowlistReady) {
+      enqueuePayload(url, body, contentType);
       return;
     }
+    if (!canPublish()) return;
+    if (!matchesAllowlist(url)) return;
     const requestId = getRequestId(url);
     const hookId = `${Date.now()}-${hookCounter++}`;
     const parsed = tryParseJson(body);
@@ -95,7 +145,7 @@
       raw: body,
       parsed
     };
-    window.postMessage({
+    emit({
       source: 'launch-observer-page',
       type: 'capturedPayload',
       requestId,
@@ -104,17 +154,19 @@
       hookId,
       hookTs: Date.now(),
       pageUrl: window.location.href
-    }, '*');
+    });
   }
 
   function postPageContext(url) {
-    if (!enableHooks) {
-      if (!allowlistReady) enqueuePageContext(url);
+    if (!allowlistReady) {
+      enqueuePageContext(url);
       return;
     }
+    if (!canPublish()) return;
+    if (!matchesAllowlist(url)) return;
     const requestId = getRequestId(url);
     const hookId = `${Date.now()}-${hookCounter++}`;
-    window.postMessage({
+    emit({
       source: 'launch-observer-page',
       type: 'pageContext',
       requestId,
@@ -122,14 +174,19 @@
       hookId,
       hookTs: Date.now(),
       pageUrl: window.location.href
-    }, '*');
+    });
   }
 
   function postWebsdkPayload(payload) {
-    if (!enableHooks) {
-      if (!allowlistReady) enqueueWebsdk(payload);
+    if (!allowlistReady) {
+      enqueueWebsdk(payload);
       return;
     }
+    // WebSDK sendEvent is intercepted before a URL exists, so there is nothing
+    // to match against the allowlist. It stays gated on the user having
+    // explicitly enabled page hooks, and the background drops it unless a
+    // session is active.
+    if (!canPublish()) return;
     let raw = '';
     try {
       raw = JSON.stringify(payload || {});
@@ -138,7 +195,7 @@
     }
     const parsed = tryParseJson(raw) || (payload && typeof payload === 'object' ? payload : null);
     const hookId = `${Date.now()}-${hookCounter++}`;
-    window.postMessage({
+    emit({
       source: 'launch-observer-page',
       type: 'capturedWebsdk',
       payload: {
@@ -150,27 +207,29 @@
       hookId,
       hookTs: Date.now(),
       pageUrl: window.location.href
-    }, '*');
+    });
   }
 
   function postHookReady() {
     if (hookReadySent) return;
     hookReadySent = true;
-    window.postMessage({ source: 'launch-observer-page', type: 'hookReady' }, '*');
+    emit({ source: 'launch-observer-page', type: 'hookReady' });
   }
 
   function postHookCall(kind, url) {
-    if (!enableHooks && allowlistReady) return;
-    window.postMessage({
+    if (!canPublish()) return;
+    if (!matchesAllowlist(url)) return;
+    emit({
       source: 'launch-observer-page',
       type: 'hookCall',
       kind,
       url
-    }, '*');
+    });
   }
 
   function wrapAlloy() {
     if (alloyWrapped) return;
+    if (!hooksShouldRun()) return;
     const original = window.alloy;
     if (typeof original !== 'function') return;
     if (original.__launchObserverWrapped) {
@@ -187,6 +246,7 @@
       return original.apply(this, args);
     };
     wrapped.__launchObserverWrapped = true;
+    wrapped.__launchObserverOriginal = original;
     try {
       Object.defineProperty(wrapped, 'name', { value: 'alloy', configurable: true });
     } catch {}
@@ -196,6 +256,7 @@
 
   function installAlloySetter() {
     if (alloySetterInstalled) return;
+    if (!hooksShouldRun()) return;
     let current = window.alloy;
     try {
       Object.defineProperty(window, 'alloy', {
@@ -274,11 +335,8 @@
     }
   }
 
-  let wrappedFetch = null;
-  let wrappedBeacon = null;
-  let wrappedXhr = null;
-
   function wrapFetch() {
+    if (!hooksShouldRun()) return;
     const current = window.fetch;
     if (typeof current !== 'function') return;
     if (current.__launchObserverWrapped) return;
@@ -287,6 +345,11 @@
       try {
         const request = input instanceof Request ? input : null;
         const url = request ? request.url : String(input);
+        // Resolve the allowlist before touching the body: cloning and decoding
+        // a request we will never publish is pure overhead on every page.
+        if (allowlistReady && !matchesAllowlist(url)) {
+          return originalFetch.apply(this, arguments);
+        }
         postHookCall('fetch', url);
         const initHeaders = init && init.headers ? init.headers : null;
         const headerLookup = headerObj => {
@@ -332,113 +395,196 @@
     wrapped.__launchObserverWrapped = true;
     wrapped.__launchObserverOriginal = originalFetch;
     window.fetch = wrapped;
-    wrappedFetch = wrapped;
   }
 
   function wrapBeacon() {
-    const current = navigator.sendBeacon?.bind(navigator);
-    if (!current || current.__launchObserverWrapped) return;
-    const originalSendBeacon = current;
+    if (!hooksShouldRun()) return;
+    const originalSendBeacon = navigator.sendBeacon;
+    if (typeof originalSendBeacon !== 'function') return;
+    if (originalSendBeacon.__launchObserverWrapped) return;
     const wrapped = function(url, data) {
       try {
-        postHookCall('beacon', url);
-        bodyToText(data).then(text => {
-          if (text) {
-            postPayload(url, text, '');
-          } else {
-            postPageContext(url);
-          }
-        });
+        if (!allowlistReady || matchesAllowlist(url)) {
+          postHookCall('beacon', url);
+          bodyToText(data).then(text => {
+            if (text) {
+              postPayload(url, text, '');
+            } else {
+              postPageContext(url);
+            }
+          });
+        }
       } catch {}
-      return originalSendBeacon(url, data);
+      return originalSendBeacon.apply(navigator, arguments);
     };
     wrapped.__launchObserverWrapped = true;
     wrapped.__launchObserverOriginal = originalSendBeacon;
     try {
       navigator.sendBeacon = wrapped;
-      wrappedBeacon = wrapped;
     } catch {}
   }
 
   function wrapXhr() {
+    if (!hooksShouldRun()) return;
     const proto = XMLHttpRequest.prototype;
     if (proto.send && proto.send.__launchObserverWrapped) return;
     const originalOpen = proto.open;
     const originalSend = proto.send;
     const originalSetHeader = proto.setRequestHeader;
-    proto.open = function(method, url) {
+    const wrappedOpen = function(method, url) {
       this.__lo_url = url;
       this.__lo_headers = {};
       return originalOpen.apply(this, arguments);
     };
-    proto.setRequestHeader = function(name, value) {
+    wrappedOpen.__launchObserverWrapped = true;
+    wrappedOpen.__launchObserverOriginal = originalOpen;
+    const wrappedSetHeader = function(name, value) {
       try {
         this.__lo_headers[name.toLowerCase()] = value;
       } catch {}
       return originalSetHeader.apply(this, arguments);
     };
+    wrappedSetHeader.__launchObserverWrapped = true;
+    wrappedSetHeader.__launchObserverOriginal = originalSetHeader;
     const wrappedSend = function(body) {
       try {
-        if (this.__lo_url && body) {
-          postHookCall('xhr', this.__lo_url);
-          bodyToText(body).then(text => {
-            const contentType = this.__lo_headers?.['content-type'] || '';
-            if (text) {
-              postPayload(this.__lo_url, text, contentType);
-            } else {
-              postPageContext(this.__lo_url);
-            }
-          });
-        } else if (this.__lo_url) {
-          postHookCall('xhr', this.__lo_url);
-          postPageContext(this.__lo_url);
+        if (this.__lo_url && (!allowlistReady || matchesAllowlist(this.__lo_url))) {
+          if (body) {
+            postHookCall('xhr', this.__lo_url);
+            bodyToText(body).then(text => {
+              const contentType = this.__lo_headers?.['content-type'] || '';
+              if (text) {
+                postPayload(this.__lo_url, text, contentType);
+              } else {
+                postPageContext(this.__lo_url);
+              }
+            });
+          } else {
+            postHookCall('xhr', this.__lo_url);
+            postPageContext(this.__lo_url);
+          }
         }
       } catch {}
       return originalSend.apply(this, arguments);
     };
     wrappedSend.__launchObserverWrapped = true;
     wrappedSend.__launchObserverOriginal = originalSend;
+    proto.open = wrappedOpen;
+    proto.setRequestHeader = wrappedSetHeader;
     proto.send = wrappedSend;
-    wrappedXhr = wrappedSend;
   }
 
-  wrapFetch();
-  wrapBeacon();
-  wrapXhr();
-  installAlloySetter();
-
-  // Wrapping handled by wrapFetch / wrapBeacon / wrapXhr with watchdog.
-
-  const watchdog = setInterval(() => {
+  function installHooks() {
     wrapFetch();
     wrapBeacon();
     wrapXhr();
-    wrapAlloy();
     installAlloySetter();
-  }, 1500);
+    wrapAlloy();
+    hooksInstalled = true;
+    if (!watchdog) {
+      // Page scripts sometimes replace fetch/XHR after we wrap them.
+      watchdog = setInterval(() => {
+        wrapFetch();
+        wrapBeacon();
+        wrapXhr();
+        wrapAlloy();
+        installAlloySetter();
+      }, 1500);
+    }
+    if (!alloyTimer && !alloyWrapped) {
+      let alloyChecks = 0;
+      alloyTimer = setInterval(() => {
+        if (alloyWrapped || alloyChecks > 40) {
+          clearInterval(alloyTimer);
+          alloyTimer = null;
+          return;
+        }
+        wrapAlloy();
+        alloyChecks += 1;
+      }, 500);
+    }
+  }
+
+  /**
+   * Restore a wrapped function if it is still ours.
+   * @param {any} holder
+   * @param {string} key
+   */
+  function restore(holder, key) {
+    try {
+      const current = holder[key];
+      if (current && current.__launchObserverWrapped && current.__launchObserverOriginal) {
+        holder[key] = current.__launchObserverOriginal;
+      }
+    } catch {}
+  }
+
+  /**
+   * Remove hooks and stop all timers when capture is not enabled.
+   *
+   * Without this the extension keeps a 1500 ms watchdog and patched
+   * fetch/XHR/sendBeacon alive in every frame of every page the user visits,
+   * whether or not they are capturing anything.
+   */
+  function uninstallHooks() {
+    if (watchdog) {
+      clearInterval(watchdog);
+      watchdog = null;
+    }
+    if (alloyTimer) {
+      clearInterval(alloyTimer);
+      alloyTimer = null;
+    }
+    clearPending();
+    if (!hooksInstalled) return;
+    restore(window, 'fetch');
+    restore(navigator, 'sendBeacon');
+    restore(XMLHttpRequest.prototype, 'open');
+    restore(XMLHttpRequest.prototype, 'setRequestHeader');
+    restore(XMLHttpRequest.prototype, 'send');
+    restoreAlloy();
+    alloyWrapped = false;
+    hooksInstalled = false;
+  }
+
+  /**
+   * Unwrap alloy and drop the accessor installed over it.
+   */
+  function restoreAlloy() {
+    try {
+      const current = window.alloy;
+      const original = (current && current.__launchObserverWrapped && current.__launchObserverOriginal)
+        ? current.__launchObserverOriginal
+        : current;
+      if (alloySetterInstalled) {
+        delete window.alloy;
+        if (original !== undefined) window.alloy = original;
+        alloySetterInstalled = false;
+      } else if (original !== current) {
+        window.alloy = original;
+      }
+    } catch {}
+  }
 
   window.addEventListener('message', event => {
+    // Only accept configuration from this window's own content script.
+    if (event.source !== window) return;
     if (!event.data || event.data.source !== 'launch-observer' || event.data.type !== 'allowlist') return;
     allowlist = Array.isArray(event.data.allowlist) ? event.data.allowlist : [];
     enableHooks = !!event.data.enableHooks;
     allowlistReady = true;
-    flushPending();
+    if (enableHooks) {
+      installHooks();
+      flushPending();
+    } else {
+      uninstallHooks();
+    }
   });
 
-  window.postMessage({ source: 'launch-observer-page', type: 'requestAllowlist' }, '*');
+  // Hooks go in at document_start so nothing is missed while settings load;
+  // captures queue unpublished until the allowlist arrives, and the hooks come
+  // straight back out if the user is not capturing.
+  installHooks();
+  emit({ source: 'launch-observer-page', type: 'requestAllowlist' });
   postHookReady();
-  wrapAlloy();
-
-  let alloyChecks = 0;
-  const alloyTimer = setInterval(() => {
-    if (alloyWrapped) {
-      clearInterval(alloyTimer);
-      return;
-    }
-    wrapAlloy();
-    alloyChecks += 1;
-    if (alloyChecks > 40) {
-      clearInterval(alloyTimer);
-    }
-  }, 500);
 })();

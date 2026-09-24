@@ -9,8 +9,11 @@ import { toast } from './ui.js';
 export function renderSessions() {
   const list = elements.sessionList;
   if (!list) return;
+  if (elements.sessionCount) {
+    elements.sessionCount.textContent = `${state.sessions.length} session${state.sessions.length === 1 ? '' : 's'}`;
+  }
   if (!state.sessions.length) {
-    setHTML(list, '<div class="p-4 text-sm text-slate-500">No sessions yet.</div>');
+    setHTML(list, '<div class="p-3 text-sm text-muted">No sessions yet.</div>');
     return;
   }
   const selectedId = state.settings?.selectedSessionId;
@@ -21,88 +24,109 @@ export function renderSessions() {
     return acc;
   }, {});
 
+  // One pass over the requests instead of a full scan per session row.
+  const countsBySession = new Map();
+  const failsBySession = new Map();
+  for (const request of state.requests) {
+    countsBySession.set(request.sessionId, (countsBySession.get(request.sessionId) || 0) + 1);
+    const results = (request.uat?.results || []).filter(r => r.applicable !== false);
+    if (results.some(r => r.status === 'failed')) {
+      failsBySession.set(request.sessionId, (failsBySession.get(request.sessionId) || 0) + 1);
+    }
+  }
+
   setHTML(list, Object.entries(grouped).map(([site, siteSessions]) => {
     const sessionRows = siteSessions.map(session => {
-      const count = state.requests.filter(r => r.sessionId === session.id).length;
-      const active = session.id === selectedId ? 'bg-slate-50' : 'bg-white';
-      const isPaused = !!session.paused;
+      const count = countsBySession.get(session.id) || 0;
+      const fails = failsBySession.get(session.id) || 0;
+      const isSelected = session.id === selectedId;
+      const uatLabel = !session.uatEnabled
+        ? 'checks off'
+        : (fails ? `${fails} failing` : 'checks ok');
+      const uatTone = session.uatEnabled && fails ? 'text-danger' : 'text-muted';
+      // The sidebar is bg-inset, and in the light theme --c-inset and
+      // --c-surface are the same value, so the old bg-surface selection (and
+      // its hover) painted the row the exact colour behind it and vanished.
+      // Accent tint plus the rail marks the active row the way the request
+      // list does, and both tokens differ from inset in either theme.
       return `
-        <div class="border-b ${active}">
-          <div class="px-4 py-3 flex items-start justify-between gap-3">
-            <button class="flex-1 text-left" data-session-id="${session.id}">
-              <div class="flex items-center justify-between">
-                <div class="text-sm font-semibold">${escapeHtml(session.name || 'Untitled')}</div>
-                <div class="text-xs text-slate-400">${count}</div>
-              </div>
-              <div class="text-xs text-slate-500">${formatTime(session.createdAt)}</div>
+        <div class="group grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 rounded px-2 py-1.5 ${isSelected ? 'bg-accent/20 shadow-[inset_2px_0_0_rgb(var(--c-accent))]' : 'hover:bg-raised-hover'}">
+          <button type="button" data-session-id="${escapeHtml(session.id)}" ${isSelected ? 'aria-current="true"' : ''} class="col-start-1 truncate text-left ${isSelected ? 'font-semibold' : ''}">${escapeHtml(session.name || 'Untitled')}</button>
+          <span class="col-start-2 row-start-1 flex items-center gap-1">
+            <span class="pill">${count}</span>
+            <button type="button" data-rename-id="${escapeHtml(session.id)}" class="btn btn-icon h-5 w-5 opacity-0 group-hover:opacity-100" title="Rename session" aria-label="Rename session">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
             </button>
-            <div class="flex items-center gap-1">
-              <button class="p-1 rounded hover:bg-slate-100 text-slate-500" data-rename-id="${session.id}" title="Rename session">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="h-4 w-4">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
-                </svg>
-              </button>
-              <button class="p-1 rounded hover:bg-rose-50 text-rose-600" data-delete-id="${session.id}" title="Delete session">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="h-4 w-4">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                </svg>
-              </button>
-              <button class="p-1 rounded hover:bg-slate-100 text-slate-500 ${isPaused ? 'hidden' : ''}" data-pause-id="${session.id}" title="Pause listening">
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="h-4 w-4">
-                  <path d="M6.75 5.25A.75.75 0 0 1 7.5 4.5h2.25a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm6.75 0a.75.75 0 0 1 .75-.75h2.25a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75h-2.25a.75.75 0 0 1-.75-.75V5.25Z" />
-                </svg>
-              </button>
-            </div>
-          </div>
+            <button type="button" data-delete-id="${escapeHtml(session.id)}" class="btn btn-icon btn-icon-danger h-5 w-5 opacity-0 group-hover:opacity-100" title="Delete session" aria-label="Delete session">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+            <button type="button" data-pause-id="${escapeHtml(session.id)}" class="btn btn-icon h-5 w-5 ${session.paused ? 'hidden' : 'opacity-0 group-hover:opacity-100'}" title="Stop listening" aria-label="Stop listening">
+              <svg viewBox="0 0 24 24" fill="currentColor" class="h-3 w-3" aria-hidden="true"><rect x="14" y="4" width="4" height="16" rx="1"></rect><rect x="6" y="4" width="4" height="16" rx="1"></rect></svg>
+            </button>
+          </span>
+          <span class="col-span-2 text-xs text-muted">${escapeHtml(formatTime(session.createdAt))} · <span class="${uatTone}">${escapeHtml(uatLabel)}</span></span>
         </div>
       `;
     }).join('');
     return `
-      <div class="border-b">
-        <div class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">${escapeHtml(site)}</div>
+      <div class="flex flex-col gap-0.5">
+        <div class="px-2 pb-1 text-xs font-semibold text-muted [text-wrap:pretty]">${escapeHtml(site)}</div>
         ${sessionRows}
       </div>
     `;
   }).join(''));
 
-  list.querySelectorAll('button[data-session-id]').forEach(button => {
-    button.addEventListener('click', () => {
-      const id = button.getAttribute('data-session-id');
-      selectSession(id);
-    });
-  });
+  bindSessionDelegation(list);
+}
 
-  list.querySelectorAll('button[data-rename-id]').forEach(button => {
-    button.addEventListener('click', () => {
-      const id = button.getAttribute('data-rename-id');
-      const session = state.sessions.find(s => s.id === id);
-      if (!session) return;
-      state.sessionMode = 'update';
-      state.sessionEditId = id;
-      openSessionDialog(session);
-    });
-  });
+let sessionDelegationBound = false;
 
-  list.querySelectorAll('button[data-delete-id]').forEach(button => {
-    button.addEventListener('click', () => {
-      const id = button.getAttribute('data-delete-id');
-      deleteSession(id);
-    });
-  });
+/**
+ * Attach one delegated click handler for the whole session list.
+ *
+ * The list is rebuilt on every capture batch, so binding per row created and
+ * discarded four listeners per session each time.
+ * @param {Element} list
+ */
+function bindSessionDelegation(list) {
+  if (sessionDelegationBound) return;
+  sessionDelegationBound = true;
+  list.addEventListener('click', event => {
+    const button = event.target.closest('button[data-session-id], button[data-rename-id], button[data-delete-id], button[data-pause-id]');
+    if (!button || !list.contains(button)) return;
 
-  list.querySelectorAll('button[data-pause-id]').forEach(button => {
-    button.addEventListener('click', event => {
+    const pauseId = button.getAttribute('data-pause-id');
+    if (pauseId) {
       event.stopPropagation();
-      const id = button.getAttribute('data-pause-id');
-      api.runtime.sendMessage({ type: 'pauseSession', id }, () => {
+      api.runtime.sendMessage({ type: 'pauseSession', id: pauseId }, () => {
         if (state.settings) {
           state.settings.capturePaused = true;
-          state.settings.selectedSessionId = id;
+          state.settings.selectedSessionId = pauseId;
         }
         updateSessionSummary();
         toast('Stopped listening');
       });
-    });
+      return;
+    }
+
+    const deleteId = button.getAttribute('data-delete-id');
+    if (deleteId) {
+      deleteSession(deleteId);
+      return;
+    }
+
+    const renameId = button.getAttribute('data-rename-id');
+    if (renameId) {
+      const session = state.sessions.find(s => s.id === renameId);
+      if (!session) return;
+      state.sessionMode = 'update';
+      state.sessionEditId = renameId;
+      openSessionDialog(session);
+      return;
+    }
+
+    const selectId = button.getAttribute('data-session-id');
+    if (selectId) selectSession(selectId);
   });
 }
 
@@ -116,6 +140,7 @@ export function selectSession(id) {
     if (state.settings) state.settings.selectedSessionId = id;
     state.selectedId = null;
     elements.details.classList.add('hidden');
+    elements.details.classList.remove('flex');
     elements.observingState.classList.remove('hidden');
     elements.emptyState.classList.add('hidden');
     applySearch();
@@ -137,6 +162,7 @@ export function deleteSession(id) {
     }
     state.selectedId = null;
     elements.details.classList.add('hidden');
+    elements.details.classList.remove('flex');
     if (state.settings?.selectedSessionId) {
       elements.observingState.classList.remove('hidden');
     } else {
@@ -149,14 +175,26 @@ export function deleteSession(id) {
 }
 
 /**
+ * Build `<option>` markup for the known sites.
+ *
+ * Site names are user-entered, so every dropdown that lists them shares this
+ * one escaped implementation.
+ * @param {Array<string>} [sites]
+ * @returns {string}
+ */
+export function siteOptionsHtml(sites = state.sites) {
+  const unique = Array.from(new Set((sites || []).filter(Boolean))).sort();
+  const options = unique.map(site => `<option value="${escapeHtml(site)}">${escapeHtml(site)}</option>`).join('');
+  return options || '<option value="">Select a site</option>';
+}
+
+/**
  * Populate site dropdown options.
  */
 export function buildSiteOptions() {
   const select = elements.sessionSiteSelect;
   if (!select) return;
-  const sites = Array.from(new Set(state.sites.filter(Boolean))).sort();
-  const options = sites.map(site => `<option value="${escapeHtml(site)}">${escapeHtml(site)}</option>`).join('');
-  setHTML(select, options || '<option value="">Select a site</option>');
+  setHTML(select, siteOptionsHtml());
 }
 
 /**
@@ -285,7 +323,7 @@ export function updateUatToggle() {
   if (!config) {
     elements.sessionUatToggle.checked = false;
     elements.sessionUatToggle.disabled = true;
-    elements.sessionUatNote.textContent = 'No UAT config for this site. Import assertions to enable.';
+    elements.sessionUatNote.textContent = 'No validation rules for this site. Import rules to enable.';
     return;
   }
   elements.sessionUatToggle.disabled = false;

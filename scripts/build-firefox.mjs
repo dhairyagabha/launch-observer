@@ -19,6 +19,12 @@ const copies = [
   'manifest.firefox.json'
 ];
 
+// Chrome-only entry points and the Tailwind source must not ship to AMO.
+const excluded = new Set([
+  path.join(root, 'background', 'service-worker.js'),
+  path.join(root, 'styles', 'tailwind.css')
+]);
+
 await fs.rm(distDir, { recursive: true, force: true });
 await fs.mkdir(distDir, { recursive: true });
 
@@ -28,7 +34,7 @@ for (const item of copies) {
   const dest = path.join(distDir, destName);
   const stat = await fs.stat(src);
   if (stat.isDirectory()) {
-    await fs.cp(src, dest, { recursive: true });
+    await fs.cp(src, dest, { recursive: true, filter: source => !excluded.has(source) });
   } else {
     await fs.copyFile(src, dest);
   }

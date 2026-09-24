@@ -19,6 +19,13 @@ const copies = [
   'manifest.json'
 ];
 
+// Firefox-only entry points and the Tailwind source must not ship to the store.
+const excluded = new Set([
+  path.join(root, 'background', 'firefox-background.js'),
+  path.join(root, 'background', 'firefox-background.html'),
+  path.join(root, 'styles', 'tailwind.css')
+]);
+
 await fs.rm(distDir, { recursive: true, force: true });
 await fs.mkdir(distDir, { recursive: true });
 
@@ -27,7 +34,7 @@ for (const item of copies) {
   const dest = path.join(distDir, item);
   const stat = await fs.stat(src);
   if (stat.isDirectory()) {
-    await fs.cp(src, dest, { recursive: true });
+    await fs.cp(src, dest, { recursive: true, filter: source => !excluded.has(source) });
   } else {
     await fs.copyFile(src, dest);
   }

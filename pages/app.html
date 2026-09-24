@@ -1,732 +1,719 @@
 <!doctype html>
-<html>
+<html class="h-full">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="../icons/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="../styles/app.css" />
   <title>Launch Observer</title>
+  <script>
+    // Runs before first paint so the correct palette is up immediately.
+    try {
+      var t = localStorage.getItem('lo-theme');
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  </script>
 </head>
-<body class="bg-slate-50 text-slate-900">
-  <div class="flex h-screen">
-    <div id="mobile-sidebar-overlay" class="fixed inset-0 bg-slate-900/30 hidden z-40 lg:hidden"></div>
-    <aside id="sidebar" class="w-80 border-r bg-white flex flex-col fixed inset-y-0 left-0 z-50 translate-x-[-100%] transition-transform duration-200 lg:translate-x-0 lg:static lg:inset-auto lg:z-auto">
-      <div id="sidebar-top" class="transition-shadow duration-200">
-        <div class="p-4 border-b flex items-center justify-between gap-3">
-          <div class="flex items-center gap-3">
-            <span class="inline-flex items-center justify-center h-7 w-7 rounded-md bg-slate-900">
-              <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5 text-slate-50" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
-              </svg>
-            </span>
-            <div>
-              <div class="text-lg font-semibold">Launch Observer</div>
-              <div class="text-xs text-slate-500">Request Inspector</div>
-            </div>
-          </div>
-          <div class="flex flex-col items-end gap-1 text-xs text-slate-500">
-            <div class="flex items-center gap-2">
-              <div>v0.1.4</div>
-              <button id="open-help" class="inline-flex items-center justify-center rounded hover:text-slate-700" aria-label="Help">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="h-4 w-4">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
-                </svg>
-              </button>
-            </div>
-            <div id="debug-mode-badge" class="hidden rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-              Debug: On
-            </div>
-          </div>
-          <button id="close-sidebar" class="lg:hidden text-slate-500 hover:text-slate-700" aria-label="Close sidebar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="h-6 w-6">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-          <div class="p-3 space-y-2">
-          <button id="new-session" data-tour="start-session" class="w-full text-sm px-3 py-2 bg-slate-900 text-white rounded">Start New Session</button>
-        </div>
-      </div>
-      <div class="border-t">
-        <div id="session-list" data-tour="sessions" class="flex-1 overflow-y-auto border-b">
-          <div class="p-4 text-sm text-slate-500">No sessions yet.</div>
-        </div>
-      </div>
-      <div id="sidebar-bottom" class="p-3 border-t space-y-2 transition-shadow duration-200 mt-auto">
-        <button id="clear-sessions" class="w-full text-sm px-3 py-2 border rounded text-rose-700 border-rose-200 hover:bg-rose-50">Clear All Sessions</button>
-        <button id="clear-data" class="w-full text-sm px-3 py-2 border rounded text-rose-700 border-rose-200 hover:bg-rose-50">Clear All Data</button>
-      </div>
-    </aside>
+<body class="h-full bg-canvas text-fg">
+  <div class="grid h-screen min-h-[640px] grid-rows-[auto_minmax(0,1fr)_auto]">
 
-    <main class="flex-1 relative pl-14 lg:pl-0">
-      <button id="open-sidebar" class="lg:hidden fixed top-4 left-4 z-40 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white p-2 text-slate-700 shadow-sm" aria-label="Open sidebar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="h-6 w-6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+    <!-- ============================ Header ============================ -->
+    <header class="flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-2.5 border-b border-line bg-inset px-4 py-2.5">
+      <div class="grid h-[30px] w-[30px] flex-none place-items-center rounded border border-line bg-surface">
+        <!-- The product mark from icons/logo.svg, drawn in currentColor so it
+             follows the theme instead of carrying the logo's own navy tile. -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="h-[18px] w-[18px] text-fg" aria-hidden="true">
+          <path d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"></path>
+        </svg>
+      </div>
+      <div class="flex min-w-0 items-center gap-1.5 text-base">
+        <span class="font-semibold">Launch Observer</span>
+        <span id="session-summary" class="min-w-0 truncate text-xs text-muted"></span>
+      </div>
+      <button id="capture-state" type="button" class="btn btn-sm" title="Capture state">
+        <span id="capture-state-dot" class="h-2 w-2 flex-none rounded-full bg-dim"></span>
+        <span id="capture-state-label">Idle</span>
+      </button>
+      <div id="debug-mode-badge" class="hidden rounded-pill border border-warn px-2 text-2xs font-semibold leading-[18px] text-warn">Debug: On</div>
+      <div class="flex-1"></div>
+
+      <button id="manage-uat" data-tour="uat-assertions" type="button" class="btn btn-ghost" title="Validation rules">
+        <span class="flex h-2 w-16 flex-none gap-0.5 overflow-hidden rounded-pill bg-raised" aria-hidden="true">
+          <span id="uat-bar-pass" class="bg-ok" style="flex:0"></span>
+          <span id="uat-bar-fail" class="bg-danger" style="flex:0"></span>
+          <span id="uat-bar-rest" class="bg-line" style="flex:1"></span>
+        </span>
+        <span class="text-xs"><span id="uat-bar-count" class="font-semibold">0/0</span> <span class="text-muted">checks passing</span></span>
+      </button>
+      <button id="theme-toggle" type="button" class="btn btn-icon border border-line-strong bg-raised" aria-label="Change colour theme" title="Theme">
+        <svg id="theme-icon-system" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
+          <rect x="2" y="3" width="20" height="14" rx="2"></rect><path d="M8 21h8"></path><path d="M12 17v4"></path>
+        </svg>
+        <svg id="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="hidden h-4 w-4" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path>
+        </svg>
+        <svg id="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="hidden h-4 w-4" aria-hidden="true">
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
         </svg>
       </button>
+      <button id="open-help" type="button" class="btn btn-icon border border-line-strong bg-raised" aria-label="Help &amp; guides" title="Help &amp; guides">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path>
+        </svg>
+      </button>
+      <button id="manage-allowlist" data-tour="allowlist" type="button" class="btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-[15px] w-[15px] text-muted" aria-hidden="true">
+          <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path>
+        </svg>
+        Allowlist<span id="allowlist-count" class="pill">0</span>
+      </button>
+      <button id="open-uat-report" type="button" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-[15px] w-[15px]" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path><path d="M12 15V3"></path>
+        </svg>
+        Export Validation report
+      </button>
+    </header>
 
-      <div class="h-full flex flex-col">
-        <div class="border-b bg-white px-6 py-3">
-          <div class="flex items-center gap-3">
-            <input id="search" data-tour="search-requests" class="flex-1 border rounded px-3 py-2 text-sm" placeholder="Search domain, path, payload…" />
-            <button id="manage-allowlist" data-tour="allowlist" class="inline-flex items-center gap-2 rounded border px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="h-4 w-4">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 0 1 1.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.559.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.894.149c-.424.07-.764.383-.929.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 0 1-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.398.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 0 1-.12-1.45l.527-.737c.25-.35.272-.806.108-1.204-.165-.397-.506-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.526-.738a1.125 1.125 0 0 1 .12-1.45l.773-.773a1.125 1.125 0 0 1 1.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894Z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-              </svg>
-              Manage Allowlist
-            </button>
-            <button id="manage-uat" data-tour="uat-assertions" class="inline-flex items-center gap-2 rounded border px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="h-4 w-4">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5M3.75 6h16.5M3.75 18h16.5" />
-              </svg>
-              UAT Assertions
-            </button>
-            <button id="view-uat-assertions" class="inline-flex items-center gap-2 rounded border px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.322c1.233-2.532 4.153-6.072 9.75-6.072 5.597 0 8.517 3.54 9.75 6.072a.75.75 0 0 1 0 .656c-1.233 2.532-4.153 6.072-9.75 6.072-5.597 0-8.517-3.54-9.75-6.072a.75.75 0 0 1 0-.656Z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-              </svg>
-              See Assertions
-            </button>
-            <button id="open-uat-report" class="inline-flex items-center gap-2 rounded border px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="h-4 w-4">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m-6-8h6M7 3.75h10.5A1.5 1.5 0 0 1 19 5.25v13.5a1.5 1.5 0 0 1-1.5 1.5H7.5A1.5 1.5 0 0 1 6 18.75V5.25A1.5 1.5 0 0 1 7.5 3.75Z" />
-              </svg>
-              UAT Report
+    <!-- ============================= Main ============================= -->
+    <main class="grid min-h-0 grid-cols-[minmax(150px,200px)_minmax(280px,400px)_minmax(420px,1fr)] overflow-x-auto">
+
+      <!-- Sessions sidebar -->
+      <div id="mobile-sidebar-overlay" class="fixed inset-0 z-40 hidden bg-inset/80 lg:hidden"></div>
+      <aside id="sidebar" class="flex min-h-0 flex-col border-r border-line bg-inset">
+        <div class="flex items-center gap-2 p-3">
+          <button id="new-session" data-tour="start-session" type="button" class="btn w-full">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" class="h-3.5 w-3.5" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+            New session
+          </button>
+          <button id="close-sidebar" type="button" class="btn btn-icon lg:hidden" aria-label="Close sidebar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" class="h-4 w-4" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+          </button>
+        </div>
+        <div id="session-list" data-tour="sessions" class="flex flex-1 flex-col gap-3.5 overflow-y-auto px-2 pb-3">
+          <div class="p-3 text-sm text-muted">No sessions yet.</div>
+        </div>
+        <div class="flex items-center justify-between border-t border-line-soft px-4 py-2.5 text-xs">
+          <button id="open-data" type="button" class="btn-link">Manage data</button>
+          <span id="session-count" class="text-muted">0 sessions</span>
+        </div>
+      </aside>
+
+      <!-- Request list -->
+      <section class="flex min-h-0 flex-col border-r border-line">
+        <div class="flex flex-col gap-2.5 border-b border-line p-3">
+          <div class="flex flex-wrap gap-2">
+            <div class="relative min-w-0 flex-[1_1_220px]">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" class="pointer-events-none absolute left-2.5 top-[9px] h-3.5 w-3.5 text-muted" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+              <input id="search" data-tour="search-requests" class="input pl-[30px] pr-9" placeholder="Filter: event, domain, key=value" />
+              <span class="kbd pointer-events-none absolute right-2 top-[7px]">/</span>
+            </div>
+            <div class="relative">
+              <button id="service-filter-toggle" type="button" class="btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5 text-muted" aria-hidden="true"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"></path></svg>
+                <span id="service-filter-label">All services</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3 w-3 text-muted" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+              </button>
+              <div id="service-filter-backdrop" class="fixed inset-0 z-20 hidden"></div>
+              <div id="service-filter-menu" class="absolute right-0 top-[38px] z-[21] hidden w-64 overflow-hidden rounded-xl border border-line bg-surface shadow-[0_8px_24px_#010409]">
+                <div class="flex items-center justify-between border-b border-line px-3 py-2">
+                  <span class="text-xs font-semibold">Filter by service</span>
+                  <button id="service-filter-clear" type="button" class="btn-link text-xs">Clear</button>
+                </div>
+                <div class="border-b border-line p-2">
+                  <input id="service-filter-search" class="input input-sm" placeholder="Filter services" />
+                </div>
+                <div id="service-filter-options" class="max-h-64 overflow-y-auto py-1"></div>
+                <div class="border-t border-line px-3 py-2 text-xs text-muted">Showing services detected in this session</div>
+              </div>
+            </div>
+            <button id="failing-only" type="button" class="btn" title="Failing only (f)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="h-3.5 w-3.5 text-danger" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m15 9-6 6"></path><path d="m9 9 6 6"></path></svg>
+              <span id="failing-only-count">0</span>
             </button>
           </div>
-          <div class="mt-2 text-xs text-slate-500 flex items-center gap-3">
-            <span id="request-count">0 requests</span>
-            <span id="session-summary" class="text-slate-500"></span>
-          </div>
-          <div id="session-expired-banner" class="mt-2 hidden rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">
+          <div id="session-expired-banner" class="hidden rounded border border-warn/40 bg-warn/10 px-2 py-1 text-xs text-warn">
             Session expired due to inactivity.
           </div>
         </div>
-        <div class="flex-1 overflow-hidden">
-          <div class="h-full grid grid-cols-12">
-            <section class="col-span-3 border-r bg-white overflow-y-auto" id="request-list" data-tour="requests">
-              <div class="p-4 text-sm text-slate-500">No matching requests yet.</div>
-            </section>
-            <section class="col-span-9 h-full overflow-y-auto" id="details-pane" data-tour="details">
-              <div id="empty-state" class="h-full flex items-center justify-center text-slate-500">
-                Select a request to inspect its details.
-              </div>
-              <div id="observing-state" class="hidden h-full flex items-center justify-center text-slate-500">
-                Observing for calls…
-              </div>
-              <div id="details" class="hidden h-full">
-                <div class="border-b bg-white px-6 py-4">
-                  <div class="text-sm text-slate-500" id="detail-domain"></div>
-                  <div class="text-sm font-semibold break-words" id="detail-url"></div>
-                  <div class="mt-2 text-xs text-slate-500 flex flex-wrap gap-4" id="detail-meta"></div>
-                  <div class="mt-3 flex items-center justify-between gap-3">
-                    <div id="uat-status" class="flex items-center gap-2 text-xs text-slate-500">
-                      <span class="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 text-slate-400">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-3 w-3">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2" />
-                        </svg>
-                      </span>
-                      UAT not enabled for this session.
-                    </div>
-                    <button id="uat-open-drawer" class="text-xs font-medium text-slate-600 hover:text-slate-900 hidden" type="button">See results</button>
-                  </div>
-                </div>
-                <div class="px-6 py-4">
-                  <div class="mb-3">
-                    <div class="grid grid-cols-1 sm:hidden">
-                      <select id="tabs-select" aria-label="Select a tab" class="col-start-1 row-start-1 w-full appearance-none rounded-md bg-white py-2 pr-8 pl-3 text-base text-slate-900 outline-1 -outline-offset-1 outline-slate-300 focus:outline-2 focus:-outline-offset-2 focus:outline-slate-900">
-                        <option value="query">Query</option>
-                        <option value="payload">Payload</option>
-                        <option value="headers">Headers</option>
-                        <option value="raw">Raw</option>
-                      </select>
-                      <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" class="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end fill-slate-500">
-                        <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
-                      </svg>
-                    </div>
-                    <div class="hidden sm:block">
-                      <div class="border-b border-slate-200">
-                        <nav aria-label="Tabs" class="-mb-px flex space-x-8">
-                          <button class="tab-button border-b-2 border-transparent px-1 py-3 text-sm font-medium whitespace-nowrap text-slate-500 hover:border-slate-300 hover:text-slate-700" data-tab="query">Query</button>
-                          <button class="tab-button border-b-2 border-transparent px-1 py-3 text-sm font-medium whitespace-nowrap text-slate-500 hover:border-slate-300 hover:text-slate-700" data-tab="payload">Payload</button>
-                          <button class="tab-button border-b-2 border-transparent px-1 py-3 text-sm font-medium whitespace-nowrap text-slate-500 hover:border-slate-300 hover:text-slate-700" data-tab="headers">Headers</button>
-                          <button class="tab-button border-b-2 border-transparent px-1 py-3 text-sm font-medium whitespace-nowrap text-slate-500 hover:border-slate-300 hover:text-slate-700" data-tab="raw">Raw</button>
-                        </nav>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="mt-4">
-                    <div id="tab-query" class="tab-panel">
-                    <div class="text-sm font-semibold">Query Parameters</div>
-                      <div id="query-tools" class="mt-2 flex items-center gap-2">
-                        <input id="query-search" class="flex-1 border rounded px-3 py-2 text-sm" placeholder="Search query parameters…" />
-                      </div>
-                      <div id="detail-query" class="mt-2 text-sm"></div>
-                    </div>
-                    <div id="tab-payload" class="tab-panel hidden">
-                      <div class="text-sm font-semibold">Payload</div>
-                      <div id="payload-tools" class="mt-2 flex flex-wrap items-center gap-2">
-                        <input id="payload-search" data-tour="payload-search" class="flex-1 border rounded px-3 py-2 text-sm" placeholder="Search keys or values…" />
-                        <div id="payload-expand-tools" class="flex items-center gap-1">
-                          <button class="text-xs px-2 py-1 border rounded hover:bg-slate-50" data-expand="all">Expand all</button>
-                          <button class="text-xs px-2 py-1 border rounded hover:bg-slate-50" data-expand="level1">Level 1</button>
-                          <button class="text-xs px-2 py-1 border rounded hover:bg-slate-50" data-expand="level2">Level 2</button>
-                          <button class="text-xs px-2 py-1 border rounded hover:bg-slate-50" data-expand="none">Collapse all</button>
-                        </div>
-                      </div>
-                      <div id="detail-payload" class="mt-2 text-sm"></div>
-                    </div>
-                    <div id="tab-headers" class="tab-panel hidden">
-                      <div class="text-sm font-semibold">Headers</div>
-                      <div id="detail-headers" class="mt-2 text-sm"></div>
-                    </div>
-                    <div id="tab-raw" class="tab-panel hidden">
-                      <div class="text-sm font-semibold">Raw</div>
-                    <pre id="detail-raw" class="mt-2 text-xs whitespace-pre-wrap break-words rounded border bg-slate-50 p-3"></pre>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
+        <div id="request-list" data-tour="requests" class="flex-1 overflow-y-auto">
+          <div class="p-10 text-center text-sm text-muted">No requests match this filter.</div>
         </div>
-      </div>
-    </main>
-  </div>
+      </section>
 
-  <dialog id="allowlist-dialog" class="rounded-lg p-0 w-[560px] max-h-[60vh]">
-    <form method="dialog" class="flex h-full max-h-[60vh] flex-col">
-      <div class="sticky top-0 z-20 border-b bg-white px-6 py-4">
-        <div class="text-lg font-semibold">Allowlist Domains</div>
-      </div>
-      <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-        <div class="text-sm text-slate-600">Select popular services or add custom domains. Subdomains are matched automatically.</div>
-        <div>
-          <div class="text-sm font-semibold text-slate-800">Custom domains</div>
-          <div class="text-sm text-slate-600">One domain per field.</div>
+      <!-- Details -->
+      <section id="details-pane" data-tour="details" class="flex min-h-0 min-w-0 flex-col">
+        <div id="empty-state" class="flex h-full items-center justify-center px-6 text-center text-sm text-muted">
+          Select a request to inspect its details.
         </div>
-        <div id="allowlist-fields" class="space-y-2"></div>
-        <button id="allowlist-add" type="button" class="text-xs underline text-slate-700">Add domain</button>
-        <div class="flex items-start gap-3 text-sm text-slate-700">
-          <div class="flex h-6 shrink-0 items-center">
-            <div class="grid size-4 grid-cols-1">
-              <input id="enable-hooks" type="checkbox" class="peer col-start-1 row-start-1 appearance-none rounded-sm border border-slate-300 bg-white checked:border-slate-900 checked:bg-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:border-slate-300 disabled:bg-slate-100 disabled:checked:bg-slate-100 forced-colors:appearance-auto" />
-              <svg viewBox="0 0 14 14" fill="none" class="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white opacity-0 peer-checked:opacity-100 peer-disabled:stroke-slate-400/60">
-                <path d="M3 8L6 11L11 3.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
+        <!-- `hidden flex` is deliberate, and mirrors #empty-state at runtime:
+             the reveal sites only toggle `hidden`, and .hidden is emitted after
+             .flex so it wins while closed. Dropping `flex` leaves the centring
+             classes inert and the text pinned to the top of the pane. -->
+        <div id="observing-state" class="hidden flex h-full items-center justify-center px-6 text-center text-sm text-muted">
+          Observing for calls…
+        </div>
+        <div id="details" class="hidden min-h-0 flex-1 flex-col">
+          <div class="flex flex-col gap-2.5 px-5 pt-4">
+            <div class="flex items-start gap-3">
+              <div class="flex min-w-0 flex-1 flex-col gap-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <h2 id="detail-title" class="m-0 break-words font-mono text-xl font-semibold">—</h2>
+                  <span id="uat-pill" class="hidden"></span>
+                </div>
+                <span id="detail-domain" class="text-xs text-muted"></span>
+              </div>
+              <button id="copy-json" type="button" class="btn btn-sm" title="Copy JSON (c)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="h-3.5 w-3.5 text-muted" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
+                <span id="copy-json-label">Copy JSON</span>
+              </button>
+            </div>
+            <div id="detail-meta" class="flex items-stretch overflow-hidden rounded border border-line font-mono text-xs"></div>
+            <div class="flex items-center justify-between gap-3">
+              <div id="uat-status" class="flex min-w-0 items-center gap-2 text-xs text-muted"></div>
+              <button id="uat-open-drawer" type="button" class="btn-link hidden text-xs">See results</button>
             </div>
           </div>
-          <label for="enable-hooks" class="min-w-0">Enable payload capture via page hooks (for missing bodies)</label>
-        </div>
-        <div>
-          <div class="text-sm font-semibold text-slate-800">Popular services</div>
-          <div id="allowlist-services" class="mt-2"></div>
-        </div>
-      </div>
-      <div class="sticky bottom-0 z-20 border-t bg-white px-6 py-4">
-        <div class="flex justify-end gap-2">
-          <button id="allowlist-cancel" class="px-3 py-2 border rounded" type="button">Cancel</button>
-          <button id="allowlist-save" class="px-3 py-2 bg-slate-900 text-white rounded" value="default">Save</button>
-        </div>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="session-dialog" class="rounded-lg p-0 w-[560px]">
-    <form method="dialog" class="p-6 space-y-4">
-      <div class="text-lg font-semibold" id="session-dialog-title">Start Session</div>
-      <div class="text-sm text-slate-600">Choose a site and name this session before capturing.</div>
-      <div class="space-y-4">
-        <label class="text-sm">
-          <span class="block text-slate-700">Site (required)</span>
-          <div class="mt-1 flex items-center gap-2">
-            <select id="session-site-select" class="flex-1 border rounded px-3 py-2 text-sm"></select>
-            <button id="session-site-new" type="button" class="text-xs underline text-slate-700">New site</button>
+          <div class="mt-2.5 flex gap-1 overflow-x-auto border-b border-line px-5">
+            <button type="button" class="tab-button" data-tab="query">Query<span id="tab-count-query" class="pill hidden"></span></button>
+            <button type="button" class="tab-button" data-tab="payload">Payload</button>
+            <button type="button" class="tab-button" data-tab="headers">Headers<span id="tab-count-headers" class="pill hidden"></span></button>
+            <button type="button" class="tab-button" data-tab="raw">Raw</button>
           </div>
-          <input id="session-site-input" class="mt-2 w-full border rounded px-3 py-2 text-sm hidden" placeholder="Enter new site name" />
-          <div id="session-site-error" class="mt-1 text-xs text-rose-700 hidden">Site is required.</div>
-        </label>
-        <label class="text-sm">
-          <span class="block text-slate-700">Session name</span>
-          <input id="session-name-input" class="mt-1 w-full border rounded px-3 py-2 text-sm" placeholder="e.g. Checkout flow" />
-        </label>
-        <label class="text-sm">
-          <span class="block text-slate-700">Lock listening to a tab</span>
-          <select id="session-lock-tab" class="mt-1 w-full border rounded px-3 py-2 text-sm"></select>
-          <div id="session-tab-error" class="mt-1 text-xs text-rose-700 hidden">Tab selection is required.</div>
-        </label>
-      <div class="flex items-start gap-3 text-sm text-slate-700">
-        <div class="flex h-6 shrink-0 items-center">
-          <div class="grid size-4 grid-cols-1">
-            <input id="session-uat-toggle" type="checkbox" class="peer col-start-1 row-start-1 appearance-none rounded-sm border border-slate-300 bg-white checked:border-slate-900 checked:bg-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:border-slate-300 disabled:bg-slate-100 disabled:checked:bg-slate-100 forced-colors:appearance-auto" />
-            <svg viewBox="0 0 14 14" fill="none" class="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white opacity-0 peer-checked:opacity-100 peer-disabled:stroke-slate-400/60">
-              <path d="M3 8L6 11L11 3.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
+          <select id="tabs-select" aria-label="Select a tab" class="select m-5 mb-0 hidden">
+            <option value="query">Query</option>
+            <option value="payload">Payload</option>
+            <option value="headers">Headers</option>
+            <option value="raw">Raw</option>
+          </select>
+          <div class="flex-1 overflow-y-auto px-5 pb-5 pt-3.5">
+            <div id="tab-query" class="tab-panel flex flex-col gap-3.5" data-flex="true">
+              <div id="query-tools" class="flex items-center gap-2">
+                <input id="query-search" class="input input-sm max-w-xs" placeholder="Filter parameters…" />
+              </div>
+              <div id="detail-query"></div>
+            </div>
+            <div id="tab-payload" class="tab-panel hidden flex-col gap-3.5" data-flex="true">
+              <div id="payload-tools" class="flex flex-wrap items-center gap-2">
+                <input id="payload-search" data-tour="payload-search" class="input input-sm max-w-xs" placeholder="Search keys or values…" />
+                <div id="payload-expand-tools" class="flex items-center gap-1">
+                  <button type="button" class="btn btn-sm" data-expand="all">Expand all</button>
+                  <button type="button" class="btn btn-sm" data-expand="level1">Level 1</button>
+                  <button type="button" class="btn btn-sm" data-expand="level2">Level 2</button>
+                  <button type="button" class="btn btn-sm" data-expand="none">Collapse all</button>
+                </div>
+              </div>
+              <div id="detail-payload"></div>
+            </div>
+            <div id="tab-headers" class="tab-panel hidden">
+              <div id="detail-headers"></div>
+            </div>
+            <div id="tab-raw" class="tab-panel hidden">
+              <pre id="detail-raw" class="m-0 whitespace-pre-wrap break-all rounded border border-line bg-surface p-3.5 font-mono text-xs leading-[1.7] text-fg"></pre>
+            </div>
           </div>
         </div>
-        <div class="min-w-0">
-          <label for="session-uat-toggle" class="font-medium">Perform UAT validations</label>
-          <div id="session-uat-note" class="text-xs text-slate-500">Uses the UAT assertions configured for this site.</div>
+      </section>
+    </main>
+
+    <!-- ============================ Footer ============================ -->
+    <footer class="flex items-center gap-4 overflow-hidden whitespace-nowrap border-t border-line bg-inset px-4 py-1 text-xs text-muted">
+      <button id="open-sidebar" type="button" class="btn btn-icon h-6 w-6 lg:hidden" aria-label="Open sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" class="h-4 w-4" aria-hidden="true"><path d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"></path></svg>
+      </button>
+      <span id="request-count">0 requests</span>
+      <div class="flex-1"></div>
+      <span class="hidden items-center gap-1.5 sm:flex"><kbd class="kbd">j</kbd><kbd class="kbd">k</kbd>navigate</span>
+      <span class="hidden items-center gap-1.5 sm:flex"><kbd class="kbd">/</kbd>search</span>
+      <span class="hidden items-center gap-1.5 md:flex"><kbd class="kbd">f</kbd>failing only</span>
+      <span class="hidden items-center gap-1.5 md:flex"><kbd class="kbd">c</kbd>copy JSON</span>
+      <span class="text-dim">v0.2.0</span>
+    </footer>
+  </div>
+
+  <!-- ============================ Allowlist ============================ -->
+  <dialog id="allowlist-dialog" class="modal w-[620px]">
+    <form method="dialog" class="flex max-h-[calc(100vh-48px)] flex-col">
+      <div class="modal-head">
+        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 class="modal-title">Allowlist</h2>
+          <span class="field-hint">Only requests to these domains are captured. Subdomains match automatically.</span>
         </div>
+        <button id="allowlist-cancel" type="button" class="btn btn-icon" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" class="h-4 w-4" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
       </div>
-      </div>
-      <div class="flex justify-end gap-2">
-        <button id="session-cancel" class="px-3 py-2 border rounded" type="button">Cancel</button>
-        <button id="session-save" class="px-3 py-2 bg-slate-900 text-white rounded" value="default">Start</button>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="confirm-dialog" class="rounded-lg p-0 w-[420px]">
-    <form method="dialog" class="p-6 space-y-4">
-      <div class="text-lg font-semibold" id="confirm-title">Clear all sessions?</div>
-      <div class="text-sm text-slate-600" id="confirm-body">This will delete all sessions and captured requests. This action cannot be undone.</div>
-      <div class="flex justify-end gap-2">
-        <button id="confirm-cancel" class="px-3 py-2 border rounded" type="button">Cancel</button>
-        <button id="confirm-ok" class="px-3 py-2 bg-rose-600 text-white rounded" value="default">Clear</button>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="session-idle-dialog" class="rounded-lg p-0 w-[420px]">
-    <form method="dialog" class="p-6 space-y-4">
-      <div class="text-lg font-semibold">Session idle</div>
-      <div class="text-sm text-slate-600">No requests were captured in the last 5 minutes. Do you want to extend the session or stop it now?</div>
-      <div class="flex justify-end gap-2">
-        <button id="session-idle-extend" class="px-3 py-2 border rounded" type="button">Extend</button>
-        <button id="session-idle-stop" class="px-3 py-2 bg-slate-900 text-white rounded" type="button">Stop session</button>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="uat-dialog" class="rounded-lg p-0 w-[560px]">
-    <form method="dialog" class="p-6 space-y-4">
-      <div class="text-lg font-semibold">UAT Assertions</div>
-      <div class="text-sm text-slate-600">Import or replace assertion rules for a site.</div>
-      <label class="text-sm">
-        <span class="block text-slate-700">Site</span>
-        <div class="mt-1 flex items-center gap-2">
-          <select id="uat-site-select" class="flex-1 border rounded px-3 py-2 text-sm"></select>
-          <button id="uat-site-new" type="button" class="text-xs underline text-slate-700">New site</button>
-        </div>
-        <input id="uat-site-input" class="mt-2 w-full border rounded px-3 py-2 text-sm hidden" placeholder="Enter new site name" />
-      </label>
-      <div class="rounded border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-        Download a starter template, fill in your assertions, then import the JSON file.
-      </div>
-      <div id="uat-file-status" class="text-xs hidden"></div>
-      <div id="uat-file-errors" class="text-xs text-rose-600 hidden"></div>
-      <div class="flex flex-wrap items-center gap-2">
-        <button id="uat-download-template" type="button" class="text-xs underline text-slate-700">Download template</button>
-        <input id="uat-file-input" type="file" accept="application/json" class="text-xs" />
-      </div>
-      <div class="flex justify-end gap-2">
-        <button id="uat-cancel" class="px-3 py-2 border rounded" type="button">Cancel</button>
-        <button id="uat-import" type="button" class="px-3 py-2 rounded bg-slate-900 text-white text-xs">Import</button>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="uat-detail-dialog" class="rounded-lg p-0 w-[520px]">
-    <form method="dialog" class="p-6 space-y-4">
-      <div class="text-lg font-semibold" id="uat-detail-title">Assertion Details</div>
-      <div id="uat-detail-body" class="space-y-3 text-sm text-slate-700"></div>
-      <div class="flex justify-end">
-        <button class="px-3 py-2 border rounded" type="button" id="uat-detail-close">Close</button>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="uat-report-dialog" class="rounded-lg p-0 w-[760px] max-h-[80vh]">
-    <form method="dialog" class="flex max-h-[80vh] flex-col">
-      <div class="sticky top-0 z-10 border-b bg-white px-6 py-4 flex items-center justify-between">
-        <div>
-          <div class="text-lg font-semibold">UAT Report</div>
-          <div class="text-xs text-slate-500" id="uat-report-meta"></div>
-        </div>
-        <div class="flex items-center gap-2">
-          <button id="uat-export" type="button" class="px-3 py-2 bg-slate-900 text-white rounded text-xs">Export PDF</button>
-          <button id="uat-report-close" type="button" class="px-3 py-2 border rounded text-xs">Close</button>
-        </div>
-      </div>
-      <div id="uat-report-body" class="flex-1 overflow-y-auto px-6 py-4 text-sm text-slate-700"></div>
-    </form>
-  </dialog>
-
-  <dialog id="help-dialog" class="rounded-lg p-0 w-[50vw] max-w-[50vw] max-h-[85vh]">
-    <form method="dialog" class="flex max-h-[85vh] flex-col">
-      <div class="sticky top-0 z-10 border-b bg-white px-6 py-4">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <div class="text-lg font-semibold">Help & Guides</div>
-            <div class="text-sm text-slate-500">Launch Observer usage guide and best practices.</div>
+      <div class="modal-body gap-5">
+        <div class="flex flex-col gap-2">
+          <div class="flex items-baseline justify-between">
+            <span class="field-label">Custom domains</span>
+            <span class="field-hint">Matched by suffix</span>
           </div>
-          <div class="flex items-center gap-2">
-            <button id="start-tour" class="inline-flex items-center gap-2 rounded border px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50" type="button">
-              Start Tour
-            </button>
-            <button id="help-close" class="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:text-slate-700" type="button" aria-label="Close help">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="h-5 w-5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
+          <div class="panel">
+            <div id="allowlist-fields"></div>
+            <button id="allowlist-add" type="button" class="flex w-full items-center gap-1.5 border-0 bg-transparent px-3 py-2 text-sm text-link hover:bg-accent/10">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" class="h-3.5 w-3.5" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+              Add domain
             </button>
           </div>
         </div>
-      </div>
-      <div class="border-b bg-white px-6">
-        <nav aria-label="Help tabs" class="-mb-px flex space-x-8">
-          <button type="button" class="help-tab border-b-2 border-slate-900 px-1 py-3 text-sm font-medium text-slate-900" data-help-tab="overview">Overview</button>
-          <button type="button" class="help-tab border-b-2 border-transparent px-1 py-3 text-sm font-medium text-slate-500 hover:border-slate-300 hover:text-slate-700" data-help-tab="getting-started">Getting Started</button>
-          <button type="button" class="help-tab border-b-2 border-transparent px-1 py-3 text-sm font-medium text-slate-500 hover:border-slate-300 hover:text-slate-700" data-help-tab="tasks">Common Tasks</button>
-          <button type="button" class="help-tab border-b-2 border-transparent px-1 py-3 text-sm font-medium text-slate-500 hover:border-slate-300 hover:text-slate-700" data-help-tab="uat">UAT Assertions</button>
-          <button type="button" class="help-tab border-b-2 border-transparent px-1 py-3 text-sm font-medium text-slate-500 hover:border-slate-300 hover:text-slate-700" data-help-tab="troubleshooting">Troubleshooting</button>
-          <button type="button" class="help-tab border-b-2 border-transparent px-1 py-3 text-sm font-medium text-slate-500 hover:border-slate-300 hover:text-slate-700" data-help-tab="faq">FAQ</button>
-        </nav>
-      </div>
-      <div class="flex-1 overflow-y-auto px-6 py-4 text-sm text-slate-700">
-        <div class="space-y-6">
-          <div>
-            <section id="overview" class="help-panel">
-              <h3 class="help-section-title text-base font-semibold text-slate-900 mb-2">Overview</h3>
-              <div class="text-slate-600">Launch Observer helps you see which analytics calls are firing on a website. It is designed for Adobe Experience Platform (AEP) Edge and Adobe Analytics, but you can also use it for other tracking services.</div>
-              <div class="mt-2 text-slate-600">Use it when you want to confirm that a page view or click is sending data, and to read the exact values being sent.</div>
-              <div class="mt-3 text-slate-600">
-              <div class="font-semibold text-slate-900 mb-2">Key concepts (simple definitions)</div>
-                <div class="mt-1 space-y-2">
-                  <div><span class="font-semibold">Session:</span> A recording window that keeps related requests together.</div>
-                  <div><span class="font-semibold">Site:</span> A label you assign (for example, “Production” or “Staging”).</div>
-                  <div><span class="font-semibold">Allowlist:</span> The domains you want to capture (for example, AEP Edge).</div>
-                  <div><span class="font-semibold">Requests:</span> The network calls sent by the page.</div>
-                  <div><span class="font-semibold">Payload:</span> The data inside a request, shown in a readable format.</div>
-                  <div><span class="font-semibold">UAT assertions:</span> Rules that validate your analytics data.</div>
-                </div>
-              </div>
-              <div class="mt-3 text-slate-600">
-                <div class="font-semibold text-slate-900 mb-2">WebSDK payload capture</div>
-                <div class="text-slate-600">
-                  When payload capture via page hooks is enabled, Launch Observer can capture WebSDK payloads
-                  even when requests are sent outside the page context.
-                </div>
-              </div>
-              <div class="mt-4 rounded border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-                <div class="font-semibold text-slate-900">Privacy statement</div>
-                <div class="mt-1 text-slate-600">
-                  Launch Observer does not send data to external servers. It only inspects allowlisted requests
-                  while a session is active and stores data locally in your browser.
-                </div>
-              </div>
-              <figure class="mt-4">
-                <a href="assets/help/overview.png" target="_blank" rel="noopener" class="block">
-                  <img src="assets/help/overview.png" alt="Overview of Launch Observer UI" class="w-full rounded border bg-white" />
-                </a>
-                <figcaption class="mt-2 text-xs text-slate-500">Overview of the main workspace.</figcaption>
-              </figure>
-            </section>
-            <section id="getting-started" class="help-panel hidden">
-              <h3 class="help-section-title text-base font-semibold text-slate-900 mb-2">Getting Started</h3>
-              <ol class="list-decimal space-y-2 pl-5 text-slate-600">
-                <li>Open Launch Observer from your browser toolbar.</li>
-                <li>Click <span class="font-semibold">Start New Session</span>.</li>
-                <li>Choose a <span class="font-semibold">Site</span> or create a new one.</li>
-                <li>Give the session a friendly name (optional but recommended).</li>
-                <li>Pick a tab to listen to (or choose “All tabs”).</li>
-                <li>Click <span class="font-semibold">Start</span>.</li>
-                <li>Now browse the site. Requests will appear as you interact.</li>
-              </ol>
-              <figure class="mt-4">
-                <a href="assets/help/getting-started.png" target="_blank" rel="noopener" class="block">
-                  <img src="assets/help/getting-started.png" alt="Start new session modal" class="w-full rounded border bg-white" />
-                </a>
-                <figcaption class="mt-2 text-xs text-slate-500">Start a session and choose a site.</figcaption>
-              </figure>
-            </section>
-            <section id="tasks" class="help-panel hidden">
-              <h3 class="help-section-title text-base font-semibold text-slate-900 mb-2">Common Tasks</h3>
-              <ol class="list-decimal space-y-3 pl-5 text-slate-600">
-                <li><span class="font-semibold">Find a request:</span> Use the search bar at the top of the report to filter by domain, path, or value.</li>
-                <li><span class="font-semibold">Read a payload:</span> Click a request in the list. Use the Payload tab to see values in a readable format.</li>
-                <li><span class="font-semibold">Check a page view or click:</span> Look for the event type inside the request to confirm a page view or link click.</li>
-                <li><span class="font-semibold">Add a custom domain:</span> Open Manage Allowlist, add the domain, and optionally map it to a known service.</li>
-                <li><span class="font-semibold">Pause a session:</span> Use the pause icon beside a session to stop listening.</li>
-                <li><span class="font-semibold">Create UAT assertions:</span> Download the template from <span class="font-semibold">UAT Assertions</span>, open it in a text editor, and add rules for your site (examples: event type exists, page name equals, only one pageview per page).</li>
-                <li><span class="font-semibold">Import UAT assertions:</span> In <span class="font-semibold">UAT Assertions</span>, select the site, upload the JSON, and click <span class="font-semibold">Import</span>.</li>
-                <li><span class="font-semibold">Validate UAT assertions:</span> Open <span class="font-semibold">UAT Assertions</span>, import your site’s JSON, then enable <span class="font-semibold">Perform UAT validations</span> when starting a session.</li>
-                <li><span class="font-semibold">Review assertions:</span> Click <span class="font-semibold">See Assertions</span> to inspect the active rules and download the JSON if needed.</li>
-                <li><span class="font-semibold">Export a UAT report:</span> Use <span class="font-semibold">UAT Report</span> to review pass/fail results and export a shareable PDF.</li>
-              </ol>
-              <figure class="mt-4">
-                <a href="assets/help/common-tasks.png" target="_blank" rel="noopener" class="block">
-                  <img src="assets/help/common-tasks.png" alt="Request details with payload tab" class="w-full rounded border bg-white" />
-                </a>
-                <figcaption class="mt-2 text-xs text-slate-500">Inspect payload details and search values.</figcaption>
-              </figure>
-            </section>
-            <section id="uat" class="help-panel hidden">
-              <h3 class="help-section-title text-base font-semibold text-slate-900 mb-2">UAT Assertions</h3>
-              <div class="text-slate-600">UAT assertions are JSON rules that validate analytics calls for a site. Each assertion can include applicability conditions (when to run) and validations (what must pass).</div>
-              <div class="mt-3 text-slate-600">
-                <div class="font-semibold text-slate-900 mb-2">Top-level structure</div>
-                <ul class="list-disc pl-5 space-y-1">
-                  <li><span class="font-semibold">siteId</span> and <span class="font-semibold">siteName</span>: identify the site.</li>
-                  <li><span class="font-semibold">global</span>: optional include/exclude gates by service ID and conditions.</li>
-                  <li><span class="font-semibold">assertions</span>: array of assertion objects.</li>
-                </ul>
-              </div>
-              <div class="mt-3 text-slate-600">
-                <div class="font-semibold text-slate-900 mb-2">Assertion fields</div>
-                <ul class="list-disc pl-5 space-y-1">
-                  <li><span class="font-semibold">id</span>, <span class="font-semibold">title</span>, <span class="font-semibold">description</span></li>
-                  <li><span class="font-semibold">conditionsLogic</span>: <span class="font-semibold">all</span> or <span class="font-semibold">any</span></li>
-                  <li><span class="font-semibold">scope</span>: <span class="font-semibold">request</span> or <span class="font-semibold">page</span></li>
-                  <li><span class="font-semibold">conditions</span>: optional applicability checks (when the assertion should run)</li>
-                  <li><span class="font-semibold">validations</span>: required checks that must pass when applicable</li>
-                  <li><span class="font-semibold">count</span> + <span class="font-semibold">value</span>: page-level rules (exactly/at_least/at_most)</li>
-                </ul>
-              </div>
-              <div class="mt-3 text-slate-600">
-                <div class="font-semibold text-slate-900 mb-2">Condition fields</div>
-                <ul class="list-disc pl-5 space-y-1">
-                  <li><span class="font-semibold">source</span>: payload, query, headers, raw</li>
-                  <li><span class="font-semibold">path</span>: dotted path or array index (example: <span class="font-mono">events[0].xdm.eventType</span>)</li>
-                  <li><span class="font-semibold">operator</span>: exists, equals, contains, starts_with, ends_with, regex, in, not_in, gt, gte, lt, lte, range</li>
-                  <li><span class="font-semibold">expected</span>: required for most operators (string, number, or array)</li>
-                </ul>
-              </div>
-              <div class="mt-4 text-slate-600">
-                <div class="font-semibold text-slate-900 mb-2">Schema notes (required vs optional)</div>
-                <ul class="list-disc pl-5 space-y-1">
-                  <li><span class="font-semibold">siteId</span> (required): string identifier for the site.</li>
-                  <li><span class="font-semibold">siteName</span> (optional): human-friendly site label (string).</li>
-                  <li><span class="font-semibold">global</span> (optional): global gates for UAT applicability.</li>
-                  <li><span class="font-semibold">global.includeServices</span> (optional): service IDs to include.</li>
-                  <li><span class="font-semibold">global.excludeServices</span> (optional): service IDs to exclude.</li>
-                  <li><span class="font-semibold">global.includeConditions</span> (optional): conditions that must all pass to run UAT.</li>
-                  <li><span class="font-semibold">global.excludeConditions</span> (optional): conditions that skip UAT when matched.</li>
-                  <li><span class="font-semibold">assertions</span> (required): array of assertion objects.</li>
-                  <li><span class="font-semibold">assertion.id</span> (required): unique string.</li>
-                  <li><span class="font-semibold">assertion.title</span> (optional): string shown in the UI.</li>
-                  <li><span class="font-semibold">assertion.description</span> (optional): string shown in the UI.</li>
-                  <li><span class="font-semibold">assertion.conditionsLogic</span> (optional): <span class="font-semibold">all</span> or <span class="font-semibold">any</span> for applicability (default: all).</li>
-                  <li><span class="font-semibold">assertion.scope</span> (optional): <span class="font-semibold">request</span> or <span class="font-semibold">page</span> (default: request).</li>
-                  <li><span class="font-semibold">assertion.conditions</span> (optional): array of applicability condition objects.</li>
-                  <li><span class="font-semibold">assertion.validations</span> (required): array of validation objects (all must pass).</li>
-                  <li><span class="font-semibold">validations logic</span>: always <span class="font-semibold">all</span> (no override).</li>
-                  <li><span class="font-semibold">assertion.count</span> (required only for scope=page): <span class="font-semibold">exactly</span>, <span class="font-semibold">at_least</span>, or <span class="font-semibold">at_most</span>.</li>
-                  <li><span class="font-semibold">assertion.value</span> (required only for scope=page): number.</li>
-                  <li><span class="font-semibold">condition.source</span> (optional): <span class="font-semibold">payload</span>, <span class="font-semibold">query</span>, <span class="font-semibold">headers</span>, or <span class="font-semibold">raw</span> (default: payload).</li>
-                  <li><span class="font-semibold">condition.path</span> (required unless source=raw): string path.</li>
-                  <li><span class="font-semibold">condition.operator</span> (required): string operator.</li>
-                  <li><span class="font-semibold">condition.expected</span> (required for comparison operators): string, number, or array.</li>
-                </ul>
-              </div>
-              <div class="mt-4 text-slate-600">
-                <div class="font-semibold text-slate-900 mb-2">Service catalog (IDs)</div>
-                <ul class="list-disc pl-5 space-y-1">
-                  <li><span class="font-semibold">adobe-edge</span> — Adobe Edge</li>
-                  <li><span class="font-semibold">adobe-analytics</span> — Adobe Analytics</li>
-                  <li><span class="font-semibold">google-analytics</span> — Google Analytics</li>
-                  <li><span class="font-semibold">google-ads</span> — Google Ads</li>
-                  <li><span class="font-semibold">meta</span> — Meta Pixel</li>
-                  <li><span class="font-semibold">tiktok</span> — TikTok Pixel</li>
-                  <li><span class="font-semibold">linkedin</span> — LinkedIn Insight</li>
-                  <li><span class="font-semibold">pinterest</span> — Pinterest Tag</li>
-                  <li><span class="font-semibold">snapchat</span> — Snapchat Pixel</li>
-                  <li><span class="font-semibold">x</span> — X Ads</li>
-                  <li><span class="font-semibold">microsoft-ads</span> — Microsoft Ads (Bing)</li>
-                  <li><span class="font-semibold">baidu</span> — Baidu Tongji</li>
-                  <li><span class="font-semibold">demandbase</span> — Demandbase</li>
-                  <li><span class="font-semibold">hotjar</span> — Hotjar</li>
-                  <li><span class="font-semibold">segment</span> — Segment</li>
-                  <li><span class="font-semibold">mixpanel</span> — Mixpanel</li>
-                  <li><span class="font-semibold">amplitude</span> — Amplitude</li>
-                </ul>
-              </div>
-              <div class="mt-3 rounded border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                Tip: Use <span class="font-semibold">Download template</span> from the UAT Assertions dialog to get a starter file.
-              </div>
-              <div class="mt-4 rounded border border-slate-200 bg-white p-4 text-xs text-slate-700 overflow-x-auto">
-                <pre><code>{
-  "siteId": "example-site",
-  "siteName": "Example Site",
-  "global": {
-    "includeServices": ["adobe-analytics", "adobe-edge"],
-    "excludeServices": ["meta"],
-    "excludeConditions": [
-      {
-        "source": "payload",
-        "path": "events[0].xdm.eventType",
-        "operator": "equals",
-        "expected": "web.webinteraction.linkClicks"
-      }
-    ]
-  },
-  "assertions": [
-    {
-      "id": "pageview-once",
-      "title": "Pageview fires only once",
-      "description": "Ensure pageview event fires only once per page view.",
-      "conditionsLogic": "all",
-      "conditions": [
-        {
-          "source": "payload",
-          "path": "events[0].web.webPageDetails.siteSection",
-          "operator": "equals",
-          "expected": "Homepage"
-        }
-      ],
-      "validations": [
-        {
-          "source": "payload",
-          "path": "events[0].xdm.eventType",
-          "operator": "equals",
-          "expected": "web.webpagedetails.pageViews"
-        }
-      ],
-      "scope": "page",
-      "count": "exactly",
-      "value": 1
-    },
-    {
-      "id": "page-name-present",
-      "title": "Page name is present",
-      "conditionsLogic": "all",
-      "conditions": [],
-      "validations": [
-        {
-          "source": "payload",
-          "path": "events[0]._experience.analytics.customDimensions.eVars.eVar41",
-          "operator": "exists"
-        }
-      ]
-    }
-  ]
-}</code></pre>
-              </div>
-            </section>
-            <section id="troubleshooting" class="help-panel hidden">
-              <h3 class="help-section-title text-base font-semibold text-slate-900 mb-2">Troubleshooting</h3>
-              <ol class="list-decimal space-y-2 pl-5 text-slate-600">
-                <li><span class="font-semibold">I don’t see any requests:</span> Check that the correct domain is in the Allowlist.</li>
-                <li><span class="font-semibold">Payload looks empty:</span> Enable “payload capture via page hooks” in the Allowlist settings.</li>
-                <li><span class="font-semibold">Only some tabs show data:</span> Make sure your session isn’t locked to a different tab.</li>
-                <li><span class="font-semibold">I want a fresh start:</span> Use Clear All Sessions (this does not delete Site names).</li>
-              </ol>
-              <figure class="mt-4">
-                <a href="assets/help/troubleshooting.png" target="_blank" rel="noopener" class="block">
-                  <img src="assets/help/troubleshooting.png" alt="Allowlist settings with hooks toggle" class="w-full rounded border bg-white" />
-                </a>
-                <figcaption class="mt-2 text-xs text-slate-500">Confirm allowlist settings and hooks.</figcaption>
-              </figure>
-            </section>
-            <section id="faq" class="help-panel hidden">
-              <h3 class="help-section-title text-base font-semibold text-slate-900 mb-2">FAQ</h3>
-              <div class="space-y-3 text-slate-600">
-                <div>
-                  <div class="font-semibold text-slate-900 mb-1">Does this change analytics data?</div>
-                  <div class="mt-1">No. Launch Observer is read-only.</div>
-                </div>
-                <div>
-                  <div class="font-semibold text-slate-900 mb-1">Will it change what is sent?</div>
-                  <div class="mt-1">No. It only reads what the page sends.</div>
-                </div>
-                <div>
-                  <div class="font-semibold text-slate-900 mb-1">What is a UAT assertion?</div>
-                  <div class="mt-1">A rule that checks whether a request contains the values you expect.</div>
-                </div>
-                <div>
-                  <div class="font-semibold text-slate-900 mb-1">Do UAT assertions edit or block requests?</div>
-                  <div class="mt-1">No. They only evaluate what the page already sent.</div>
-                </div>
-                <div>
-                  <div class="font-semibold text-slate-900 mb-1">What happens if a request does not match any assertion?</div>
-                  <div class="mt-1">It shows no UAT badge and is treated as not applicable.</div>
-                </div>
-                <div>
-                  <div class="font-semibold text-slate-900 mb-1">Can I reuse the same UAT file across sites?</div>
-                  <div class="mt-1">Yes, but it is best to create one JSON per site and update the siteId/siteName.</div>
-                </div>
-                <div>
-                  <div class="font-semibold text-slate-900 mb-1">Can I validate “only one pageview per page”?</div>
-                  <div class="mt-1">Yes. Use a page-scoped assertion with count set to <span class="font-semibold">exactly</span> and value set to 1.</div>
-                </div>
-                <div>
-                  <div class="font-semibold text-slate-900 mb-1">Can I use it outside Adobe?</div>
-                  <div class="mt-1">Yes. Add any domain to the Allowlist.</div>
-                </div>
-                <div>
-                  <div class="font-semibold text-slate-900 mb-1">Are values changed?</div>
-                  <div class="mt-1">No. Keys and values keep their original casing.</div>
-                </div>
-              </div>
-            </section>
+        <label class="flex cursor-pointer gap-2.5 text-left">
+          <span class="pt-0.5">
+            <input id="enable-hooks" type="checkbox" class="peer sr-only" />
+            <span class="checkbox peer-checked:border-accent peer-checked:bg-accent peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-accent">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" class="hidden h-2.5 w-2.5" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+            </span>
+          </span>
+          <span class="flex flex-col gap-0.5">
+            <span class="field-label">Enable payload capture via page hooks</span>
+            <span class="field-hint">Reads request bodies the network layer can’t see, such as WebSDK payloads.</span>
+          </span>
+        </label>
+        <div class="flex flex-col gap-2">
+          <div class="flex items-baseline justify-between">
+            <span class="field-label">Popular services</span>
+            <span id="allowlist-service-summary" class="field-hint"></span>
           </div>
+          <input id="allowlist-service-search" class="input" placeholder="Search services…" />
+          <div id="allowlist-services" class="panel"></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <span id="allowlist-summary" class="mr-auto field-hint"></span>
+        <button type="button" class="btn" id="allowlist-cancel-2">Cancel</button>
+        <button id="allowlist-save" class="btn btn-primary" value="default">Save allowlist</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============================= Session ============================= -->
+  <dialog id="session-dialog" class="modal w-[480px]">
+    <form method="dialog" class="flex max-h-[calc(100vh-48px)] flex-col">
+      <div class="modal-head">
+        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 class="modal-title" id="session-dialog-title">Start a session</h2>
+          <span class="field-hint">Choose a site and name this session before capturing.</span>
+        </div>
+        <button id="session-cancel" type="button" class="btn btn-icon" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" class="h-4 w-4" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <label class="flex flex-col gap-1.5">
+          <span class="field-label">Site <span class="text-danger">*</span></span>
+          <span class="flex gap-2">
+            <select id="session-site-select" class="select flex-1"></select>
+            <button id="session-site-new" type="button" class="btn">New site</button>
+          </span>
+          <input id="session-site-input" class="input hidden" placeholder="Enter new site name" />
+          <span id="session-site-error" class="field-error hidden">Site is required.</span>
+        </label>
+        <label class="flex flex-col gap-1.5">
+          <span class="field-label">Session name</span>
+          <input id="session-name-input" class="input" placeholder="e.g. Checkout flow" />
+        </label>
+        <label class="flex flex-col gap-1.5">
+          <span class="field-label">Lock listening to a tab</span>
+          <select id="session-lock-tab" class="select"></select>
+          <span class="field-hint">Only requests from this tab are captured.</span>
+          <span id="session-tab-error" class="field-error hidden">Tab selection is required.</span>
+        </label>
+        <div class="flex flex-col gap-2">
+          <div class="flex items-baseline justify-between">
+            <span class="field-label">Validation rules</span>
+            <span class="field-hint">Optional · one file per site</span>
+          </div>
+          <label class="flex cursor-pointer items-center gap-2.5 text-left">
+            <input id="session-uat-toggle" type="checkbox" class="peer sr-only" />
+            <span class="checkbox peer-checked:border-accent peer-checked:bg-accent peer-disabled:opacity-50">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" class="hidden h-2.5 w-2.5" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+            </span>
+            <span class="text-sm">Run validations while capturing</span>
+          </label>
+          <span id="session-uat-note" class="field-hint"></span>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button id="session-cancel-2" type="button" class="btn">Cancel</button>
+        <button id="session-save" class="btn btn-primary" value="default">
+          <span class="h-2 w-2 flex-none rounded-full bg-white"></span>Start session
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============================ Manage data ============================ -->
+  <dialog id="data-dialog" class="modal w-[560px]">
+    <form method="dialog" class="flex max-h-[calc(100vh-48px)] flex-col">
+      <div class="modal-head">
+        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 class="modal-title">Manage data</h2>
+          <span class="field-hint">Everything is stored locally in this browser.</span>
+        </div>
+        <button id="data-close" type="button" class="btn btn-icon" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" class="h-4 w-4" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+      <div class="modal-body gap-5">
+        <div class="flex flex-col gap-2">
+          <div class="flex items-baseline justify-between">
+            <span class="field-label">Local storage</span>
+            <span id="data-usage-label" class="field-hint"></span>
+          </div>
+          <!-- bg-line, not bg-raised: in the light palette raised, inset and
+               surface are the same value, so a raised track is invisible
+               against the dialog. Matches the header bar's unfilled segment. -->
+          <span class="flex h-2 overflow-hidden rounded-pill bg-line">
+            <span id="data-usage-bar" class="bg-accent" style="width:0%"></span>
+          </span>
+          <span id="data-usage-detail" class="field-hint"></span>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="field-label">Sites</span>
+          <div id="data-sites" class="panel"></div>
+        </div>
+        <div class="overflow-hidden rounded border border-danger/40">
+          <div class="border-b border-danger/40 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger">Danger zone</div>
+          <div class="flex items-center gap-3 border-b border-line-soft p-3">
+            <span class="flex flex-1 flex-col gap-0.5">
+              <span class="field-label">Clear all sessions</span>
+              <span class="field-hint">Deletes captured requests. Keeps sites, allowlist and validation rules.</span>
+            </span>
+            <button id="clear-sessions" type="button" class="btn btn-danger">Clear sessions</button>
+          </div>
+          <div class="flex items-center gap-3 p-3">
+            <span class="flex flex-1 flex-col gap-0.5">
+              <span class="field-label">Clear all data</span>
+              <span class="field-hint">Resets the extension, including allowlist and validation rules. This can’t be undone.</span>
+            </span>
+            <button id="clear-data" type="button" class="btn btn-danger">Clear all data</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button id="data-done" type="button" class="btn">Done</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============================= Confirm ============================= -->
+  <dialog id="confirm-dialog" class="modal w-[420px]">
+    <form method="dialog" class="flex flex-col">
+      <div class="modal-head">
+        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 class="modal-title" id="confirm-title">Clear all sessions?</h2>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="text-sm text-muted" id="confirm-body">This will delete all sessions and captured requests. This action cannot be undone.</div>
+      </div>
+      <div class="modal-foot">
+        <button id="confirm-cancel" type="button" class="btn">Cancel</button>
+        <button id="confirm-ok" class="btn btn-danger" value="default">Clear</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============================ Idle prompt ============================ -->
+  <dialog id="session-idle-dialog" class="modal w-[420px]">
+    <form method="dialog" class="flex flex-col">
+      <div class="modal-head">
+        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 class="modal-title">Session idle</h2>
+          <span class="field-hint">Still recording, but nothing has arrived for a while.</span>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="text-sm text-muted">No requests were captured in the last 5 minutes. Keep this session recording, or stop it and keep what was captured so far.</div>
+      </div>
+      <div class="modal-foot">
+        <button id="session-idle-stop" type="button" class="btn btn-danger">Stop session</button>
+        <button id="session-idle-extend" type="button" class="btn btn-primary">Keep recording</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============================= Validation rules ============================= -->
+  <dialog id="uat-dialog" class="modal w-[760px]">
+    <form method="dialog" class="flex max-h-[calc(100vh-48px)] flex-col">
+      <div class="modal-head">
+        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 class="modal-title">Validation rules</h2>
+          <span class="field-hint">Assertions for a site. One file per site.</span>
+        </div>
+        <button id="uat-cancel" type="button" class="btn btn-icon" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" class="h-4 w-4" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <label class="flex flex-col gap-1.5">
+          <span class="field-label">Site</span>
+          <span class="flex gap-2">
+            <select id="uat-site-select" class="select flex-1"></select>
+            <button id="uat-site-new" type="button" class="btn">New site</button>
+          </span>
+          <input id="uat-site-input" class="input hidden" placeholder="Enter new site name" />
+        </label>
+        <label for="uat-file-input" class="dropzone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-muted" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m17 8-5-5-5 5"></path><path d="M12 3v12"></path></svg>
+          <span class="text-sm">Drop a validation rules file here or <span class="text-link">browse</span></span>
+          <span class="field-hint">.json · Validation re-runs on all captured requests for this site.</span>
+          <input id="uat-file-input" type="file" accept="application/json" class="sr-only" />
+        </label>
+        <div id="uat-file-status" class="hidden text-xs"></div>
+        <div id="uat-file-errors" class="field-error hidden"></div>
+        <div id="uat-config-preview" class="hidden flex-col gap-2"></div>
+      </div>
+      <div class="modal-foot">
+        <button id="uat-download-template" type="button" class="btn mr-auto">Download template</button>
+        <button id="view-uat-assertions" type="button" class="btn">View config</button>
+        <button id="uat-import" type="button" class="btn btn-primary">Import</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============================ UAT detail ============================ -->
+  <dialog id="uat-detail-dialog" class="modal w-[520px]">
+    <form method="dialog" class="flex max-h-[calc(100vh-48px)] flex-col">
+      <div class="modal-head">
+        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 class="modal-title" id="uat-detail-title">Assertion details</h2>
+        </div>
+        <button id="uat-detail-close" type="button" class="btn btn-icon" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" class="h-4 w-4" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+      <div id="uat-detail-body" class="modal-body text-sm"></div>
+    </form>
+  </dialog>
+
+  <!-- ============================ Validation report ============================ -->
+  <dialog id="uat-report-dialog" class="modal w-[880px]">
+    <form method="dialog" class="flex max-h-[calc(100vh-48px)] flex-col">
+      <div class="modal-head">
+        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 class="modal-title">Validation report</h2>
+          <span id="uat-report-meta" class="field-hint"></span>
+        </div>
+        <button id="uat-report-close" type="button" class="btn btn-icon" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" class="h-4 w-4" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+      <div id="uat-report-body" class="modal-body text-sm"></div>
+      <div class="modal-foot">
+        <button id="uat-export" type="button" class="btn btn-primary">Export PDF</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============================== Help ============================== -->
+  <dialog id="help-dialog" class="modal w-[min(880px,100%)]">
+    <form method="dialog" class="flex max-h-[calc(100vh-48px)] flex-col">
+      <div class="modal-head">
+        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 class="modal-title">Help &amp; guides</h2>
+          <span class="field-hint">Launch Observer usage guide and best practices.</span>
+        </div>
+        <button id="start-tour" type="button" class="btn btn-sm">Start tour</button>
+        <button id="help-close" type="button" class="btn btn-icon" aria-label="Close help">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" class="h-4 w-4" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+      <div class="flex gap-1 overflow-x-auto border-b border-line px-4">
+        <button type="button" class="help-tab tab-button" data-help-tab="overview" aria-current="page">Overview</button>
+        <button type="button" class="help-tab tab-button" data-help-tab="getting-started">Getting Started</button>
+        <button type="button" class="help-tab tab-button" data-help-tab="tasks">Common Tasks</button>
+        <button type="button" class="help-tab tab-button" data-help-tab="uat">Validation Rules</button>
+        <button type="button" class="help-tab tab-button" data-help-tab="troubleshooting">Troubleshooting</button>
+        <button type="button" class="help-tab tab-button" data-help-tab="faq">FAQ</button>
+      </div>
+      <div class="flex-1 overflow-y-auto px-5 py-4 text-sm text-fg">
+        <div class="flex flex-col gap-4">
+
+          <section id="overview" class="help-panel flex flex-col gap-4">
+            <div>
+              <h3 class="help-section-title mb-1 text-base font-semibold text-fg">What this tool does</h3>
+              <p class="text-muted">Launch Observer records the analytics requests a site sends while you browse it, decodes the payloads, and optionally checks each one against rules you supply. It is read-only: it never edits, blocks, or replays a request.</p>
+            </div>
+            <div>
+              <div class="mb-2 font-semibold text-fg">The three panes</div>
+              <div class="panel">
+                <div class="row-sep grid grid-cols-[120px_minmax(0,1fr)] gap-3 px-3 py-2"><span class="font-semibold">Sessions</span><span class="text-muted">Recordings grouped by site. One is active at a time.</span></div>
+                <div class="row-sep grid grid-cols-[120px_minmax(0,1fr)] gap-3 px-3 py-2"><span class="font-semibold">Requests</span><span class="text-muted">Captured calls, grouped by the page they fired on. Newest first.</span></div>
+                <div class="row-sep grid grid-cols-[120px_minmax(0,1fr)] gap-3 px-3 py-2"><span class="font-semibold">Details</span><span class="text-muted">Query, payload, headers and raw body for the selected request.</span></div>
+              </div>
+            </div>
+            <div>
+              <div class="mb-2 font-semibold text-fg">Vocabulary</div>
+              <div class="flex flex-col gap-1.5 text-muted">
+                <div><span class="font-semibold text-fg">Site</span> — a label you choose, such as Production or Staging. Allowlists and validation rules are stored per site.</div>
+                <div><span class="font-semibold text-fg">Session</span> — one recording window. Requests captured while it runs belong to it.</div>
+                <div><span class="font-semibold text-fg">Allowlist</span> — the domains worth capturing. Everything else is ignored, including by the page hooks.</div>
+                <div><span class="font-semibold text-fg">Validation rules</span> — an optional JSON file of checks run against each captured request.</div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><span class="text-xs font-semibold">Where your data lives</span></div>
+              <div class="px-3 py-2 text-muted">Everything stays in this browser's local extension storage. Nothing is uploaded, and the extension makes no network requests of its own. Use <span class="font-semibold text-fg">Manage data</span> in the sidebar to see usage or clear it.</div>
+            </div>
+          </section>
+
+          <section id="getting-started" class="help-panel hidden flex flex-col gap-4">
+            <div>
+              <h3 class="help-section-title mb-1 text-base font-semibold text-fg">Record your first session</h3>
+              <ol class="ml-5 list-decimal space-y-2 text-muted">
+                <li><span class="font-semibold text-fg">Open the page you want to test</span> in a normal tab.</li>
+                <li><span class="font-semibold text-fg">Check the allowlist.</span> Adobe Edge is on by default. Use <span class="font-semibold text-fg">Allowlist</span> in the header to turn on Google Analytics, Meta, or add a custom domain.</li>
+                <li><span class="font-semibold text-fg">Click New session.</span> Pick a site, name the session, and choose the tab to listen to. Locking to one tab keeps other tabs out of the recording.</li>
+                <li><span class="font-semibold text-fg">Use the site.</span> Requests appear grouped by page as they fire.</li>
+                <li><span class="font-semibold text-fg">Select a request</span> to read its decoded query parameters and payload.</li>
+              </ol>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><span class="text-xs font-semibold">Keyboard</span></div>
+              <div class="row-sep grid grid-cols-[90px_minmax(0,1fr)] gap-3 px-3 py-2"><span><kbd class="kbd">j</kbd> <kbd class="kbd">k</kbd></span><span class="text-muted">Move through the request list (arrow keys work too)</span></div>
+              <div class="row-sep grid grid-cols-[90px_minmax(0,1fr)] gap-3 px-3 py-2"><span><kbd class="kbd">/</kbd></span><span class="text-muted">Jump to the filter box</span></div>
+              <div class="row-sep grid grid-cols-[90px_minmax(0,1fr)] gap-3 px-3 py-2"><span><kbd class="kbd">f</kbd></span><span class="text-muted">Show only requests with a failing check</span></div>
+              <div class="row-sep grid grid-cols-[90px_minmax(0,1fr)] gap-3 px-3 py-2"><span><kbd class="kbd">c</kbd></span><span class="text-muted">Copy the selected request's payload as JSON</span></div>
+              <div class="row-sep grid grid-cols-[90px_minmax(0,1fr)] gap-3 px-3 py-2"><span><kbd class="kbd">Esc</kbd></span><span class="text-muted">Close a menu, or leave the filter box</span></div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><span class="text-xs font-semibold">Good to know</span></div>
+              <div class="px-3 py-2 text-muted">Sessions stop on their own after 5 minutes with no captured request, and when you close this window. Restart from the sidebar whenever you need.</div>
+            </div>
+          </section>
+
+          <section id="tasks" class="help-panel hidden flex flex-col gap-4">
+            <div>
+              <h3 class="help-section-title mb-1 text-base font-semibold text-fg">Common tasks</h3>
+            </div>
+            <div class="flex flex-col gap-3">
+              <div><div class="font-semibold text-fg">Find one event among hundreds</div><div class="text-muted">Type into the filter box. It matches the domain, path, full URL, and every decoded query and payload value — so <span class="font-mono text-json-key">checkout</span> or <span class="font-mono text-json-key">purchase</span> both work.</div></div>
+              <div><div class="font-semibold text-fg">Narrow to one vendor</div><div class="text-muted">Use the services dropdown beside the filter box. It lists only the services actually seen in this session, with counts.</div></div>
+              <div><div class="font-semibold text-fg">See only what is broken</div><div class="text-muted">Click the red failing button, or press <kbd class="kbd">f</kbd>. The count beside it is the number of requests with at least one failing check.</div></div>
+              <div><div class="font-semibold text-fg">Read a deep payload value</div><div class="text-muted">Open the Payload tab and search. Matching branches expand automatically. Hover a row for <span class="font-semibold text-fg">Copy value</span> and <span class="font-semibold text-fg">Copy path</span> — the copied path is the same syntax validation rules use.</div></div>
+              <div><div class="font-semibold text-fg">Capture bodies the network layer cannot see</div><div class="text-muted">Turn on <span class="font-semibold text-fg">page hooks</span> in the Allowlist dialog. This is what recovers Adobe WebSDK and <span class="font-mono">sendBeacon</span> payloads. Hooks only run while a session is active, and only report requests matching your allowlist.</div></div>
+              <div><div class="font-semibold text-fg">Share a result</div><div class="text-muted">Press <kbd class="kbd">c</kbd> to copy one payload, or use <span class="font-semibold text-fg">Export validation report</span> for a printable summary of every check in the session.</div></div>
+              <div><div class="font-semibold text-fg">Switch theme</div><div class="text-muted">The icon left of Help cycles system → light → dark. The choice is remembered on this machine.</div></div>
+            </div>
+          </section>
+
+          <section id="uat" class="help-panel hidden flex flex-col gap-4">
+            <div>
+              <h3 class="help-section-title mb-1 text-base font-semibold text-fg">Validation rules</h3>
+              <p class="text-muted">A validation rules file is JSON that describes what a correct analytics call looks like. Import one per site, turn on <span class="font-semibold text-fg">Run validations</span> when starting a session, and every captured request is checked as it arrives.</p>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><span class="text-xs font-semibold">Anatomy of a rule</span></div>
+              <div class="row-sep grid grid-cols-[130px_minmax(0,1fr)] gap-3 px-3 py-2"><span class="font-mono text-json-key">conditions</span><span class="text-muted">When this rule applies. If they do not match, the rule is skipped rather than failed.</span></div>
+              <div class="row-sep grid grid-cols-[130px_minmax(0,1fr)] gap-3 px-3 py-2"><span class="font-mono text-json-key">validations</span><span class="text-muted">What must be true. All of them must pass.</span></div>
+              <div class="row-sep grid grid-cols-[130px_minmax(0,1fr)] gap-3 px-3 py-2"><span class="font-mono text-json-key">scope</span><span class="text-muted"><span class="font-mono">request</span> checks one call; <span class="font-mono">page</span> counts matching calls per page view.</span></div>
+              <div class="row-sep grid grid-cols-[130px_minmax(0,1fr)] gap-3 px-3 py-2"><span class="font-mono text-json-key">source</span><span class="text-muted"><span class="font-mono">payload</span>, <span class="font-mono">query</span>, <span class="font-mono">headers</span> or <span class="font-mono">raw</span>. Defaults to <span class="font-mono">payload</span>.</span></div>
+              <div class="row-sep grid grid-cols-[130px_minmax(0,1fr)] gap-3 px-3 py-2"><span class="font-mono text-json-key">path</span><span class="text-muted">Dotted path with bracket indexes, e.g. <span class="font-mono">events[0].xdm.eventType</span>. Copy Path in the Payload tab gives you this.</span></div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><span class="text-xs font-semibold">Operators</span></div>
+              <div class="px-3 py-2 font-mono text-xs text-muted">exists · not_exists · equals · contains · starts_with · ends_with · regex · in · not_in · gt · gte · lt · lte · range</div>
+            </div>
+            <div>
+              <div class="mb-1 font-semibold text-fg">Getting started</div>
+              <p class="text-muted">Open <span class="font-semibold text-fg">Validation Rules</span>, click <span class="font-semibold text-fg">Download template</span>, edit it, then import. The file is checked on import — unknown operators, unknown sources, bad regexes, duplicate rule ids and malformed ranges are reported with the rule number, rather than silently failing every request later.</p>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><span class="text-xs font-semibold">Reading results</span></div>
+              <div class="row-sep flex items-center gap-2 px-3 py-2"><span class="pill-pass">pass</span><span class="text-muted">Every applicable check passed.</span></div>
+              <div class="row-sep flex items-center gap-2 px-3 py-2"><span class="pill-fail">fail</span><span class="text-muted">At least one applicable check failed. Click <span class="font-semibold text-fg">See results</span> for the expected and actual values.</span></div>
+              <div class="row-sep flex items-center gap-2 px-3 py-2"><span class="pill-outline">no checks</span><span class="text-muted">No rule applied to this request. Not a failure.</span></div>
+            </div>
+          </section>
+
+          <section id="troubleshooting" class="help-panel hidden flex flex-col gap-4">
+            <div>
+              <h3 class="help-section-title mb-1 text-base font-semibold text-fg">Troubleshooting</h3>
+            </div>
+            <div class="flex flex-col gap-3">
+              <div><div class="font-semibold text-fg">Nothing is being captured</div><div class="text-muted">Check the header pill says <span class="font-semibold text-fg">Recording</span>. Then confirm the domain is on your allowlist, and that the session is not locked to a different tab than the one you are using.</div></div>
+              <div><div class="font-semibold text-fg">Requests appear but the payload is empty</div><div class="text-muted">Some calls send their body in a way the network layer cannot read — WebSDK and <span class="font-mono">sendBeacon</span> especially. Turn on page hooks in the Allowlist dialog and reload the page.</div></div>
+              <div><div class="font-semibold text-fg">Page hooks are on but bodies are still missing</div><div class="text-muted">A strict Content-Security-Policy on the site can block hook injection. On Firefox this is more common, because its build cannot inject into the page's own JavaScript context; use the Chrome or Edge build for the most reliable capture.</div></div>
+              <div><div class="font-semibold text-fg">Every rule is failing</div><div class="text-muted">Usually the path is wrong. Select a request, open the Payload tab, find the field, and use <span class="font-semibold text-fg">Copy path</span> — that is exactly the string the rule needs.</div></div>
+              <div><div class="font-semibold text-fg">The session stopped by itself</div><div class="text-muted">Sessions end after 5 minutes without a captured request, or when this window closes. Captured data is kept; start a new session to continue.</div></div>
+              <div><div class="font-semibold text-fg">Oldest requests disappeared</div><div class="text-muted">A session keeps the most recent 2,000 requests. If browser storage fills up, the oldest half is dropped and you are told — export anything you need to keep.</div></div>
+            </div>
+          </section>
+
+          <section id="faq" class="help-panel hidden flex flex-col gap-4">
+            <div>
+              <h3 class="help-section-title mb-1 text-base font-semibold text-fg">FAQ</h3>
+            </div>
+            <div class="flex flex-col gap-3">
+              <div><div class="font-semibold text-fg">Does this change or block any request?</div><div class="text-muted">No. It only observes. Validation rules classify what was already sent; they never alter it.</div></div>
+              <div><div class="font-semibold text-fg">Is any of this sent anywhere?</div><div class="text-muted">No. Captures stay in this browser's local storage, and the extension makes no network requests of its own.</div></div>
+              <div><div class="font-semibold text-fg">Can I reuse one rules file across sites?</div><div class="text-muted">Yes — import the same file for each site. Rules are stored per site so they can diverge later.</div></div>
+              <div><div class="font-semibold text-fg">Are values decoded?</div><div class="text-muted">Yes. URL-encoding is decoded and <span class="font-mono">+</span> becomes a space, but key and value casing is never changed.</div></div>
+              <div><div class="font-semibold text-fg">Why does a request show "no checks"?</div><div class="text-muted">No rule's conditions matched it — for example a rule scoped to Adobe Edge seeing a Google Analytics call. That is expected, not a failure.</div></div>
+              <div><div class="font-semibold text-fg">What do the two-letter badges mean?</div><div class="text-muted">The service a domain belongs to, coloured by vendor. Unrecognised domains fall back to initials of the hostname; map them to a service in the Allowlist dialog.</div></div>
+              <div><div class="font-semibold text-fg">Can I run two sessions at once?</div><div class="text-muted">No. One session records at a time, so a request is never ambiguous. Switching sessions pauses the previous one.</div></div>
+            </div>
+          </section>
         </div>
       </div>
     </form>
   </dialog>
 
-  <div id="toast-region" aria-live="assertive" class="pointer-events-none fixed inset-0 flex items-end px-4 py-6 sm:items-start sm:p-6">
-    <div class="flex w-full flex-col items-center space-y-4 sm:items-end" id="toast-stack"></div>
+  <div id="toast-region" aria-live="assertive" class="pointer-events-none fixed inset-0 z-[80] flex items-start justify-end p-4">
+    <div id="toast-stack" class="flex w-full max-w-sm flex-col gap-2"></div>
   </div>
 
   <div id="tour-overlay" class="fixed inset-0 z-[60] hidden">
-    <div class="absolute inset-0 bg-slate-900/50"></div>
-    <div id="tour-spotlight" class="absolute rounded-lg border-2 border-white shadow-[0_0_0_9999px_rgba(15,23,42,0.55)]"></div>
-    <div id="tour-card" class="absolute max-w-sm rounded-lg bg-white p-4 shadow-lg">
-      <div class="text-xs text-slate-500" id="tour-step">Step 1</div>
-      <div class="mt-1 text-sm font-semibold text-slate-900" id="tour-title">Title</div>
-      <div class="mt-2 text-sm text-slate-600" id="tour-body">Body</div>
-      <div class="mt-4 flex items-center justify-between">
-        <button id="tour-skip" class="text-xs text-slate-500 hover:text-slate-700" type="button">Skip</button>
+    <div id="tour-spotlight" class="absolute rounded border-2 border-fg shadow-[0_0_0_9999px_rgba(1,4,9,0.72)]"></div>
+    <div id="tour-card" class="absolute max-w-sm rounded-xl border border-line bg-surface p-4 shadow-[0_8px_24px_#010409]">
+      <div id="tour-title" class="text-sm font-semibold"></div>
+      <div id="tour-body" class="mt-1 text-xs text-muted"></div>
+      <div class="mt-3 flex items-center justify-between gap-2">
+        <span id="tour-step" class="text-xs text-muted"></span>
         <div class="flex items-center gap-2">
-          <button id="tour-back" class="rounded border px-2 py-1 text-xs text-slate-700" type="button">Back</button>
-          <button id="tour-next" class="rounded bg-slate-900 px-3 py-1 text-xs text-white" type="button">Next</button>
-          <button id="tour-finish" class="rounded bg-slate-900 px-3 py-1 text-xs text-white hidden" type="button">Finish</button>
+          <button id="tour-skip" type="button" class="btn-link text-xs">Skip</button>
+          <button id="tour-back" type="button" class="btn btn-sm">Back</button>
+          <button id="tour-next" type="button" class="btn btn-sm btn-primary">Next</button>
+          <button id="tour-finish" type="button" class="btn btn-sm btn-primary hidden">Finish</button>
         </div>
       </div>
     </div>
   </div>
 
-  <aside id="uat-drawer" class="fixed inset-y-0 right-0 z-[70] w-full max-w-md translate-x-full bg-white shadow-2xl transition-transform duration-200">
-    <div class="flex items-center justify-between border-b px-4 py-3">
-      <div>
-        <div class="text-sm font-semibold">UAT Assertion Results</div>
-        <div id="uat-drawer-meta" class="text-xs text-slate-500"></div>
+  <aside id="uat-drawer" class="drawer translate-x-full">
+    <div class="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
+      <div class="min-w-0">
+        <div class="text-sm font-semibold">Validation results</div>
+        <div id="uat-drawer-meta" class="field-hint"></div>
       </div>
-      <button id="uat-close-drawer" class="rounded p-1 text-slate-500 hover:text-slate-700" aria-label="Close UAT results">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-5 w-5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-        </svg>
+      <button id="uat-close-drawer" type="button" class="btn btn-icon" aria-label="Close Validation results">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" class="h-4 w-4" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
       </button>
     </div>
-    <div id="uat-drawer-body" class="h-full overflow-y-auto px-4 py-3 text-sm text-slate-700"></div>
+    <div id="uat-drawer-body" class="h-full overflow-y-auto px-4 py-3 text-sm"></div>
   </aside>
-  <div id="uat-drawer-overlay" class="fixed inset-0 z-[65] hidden bg-slate-900/30"></div>
+  <div id="uat-drawer-overlay" class="fixed inset-0 z-[65] hidden bg-inset/80"></div>
 
-  <aside id="uat-assertions-drawer" class="fixed inset-y-0 right-0 z-[70] w-full max-w-md translate-x-full bg-white shadow-2xl transition-transform duration-200">
-    <div class="flex items-center justify-between border-b px-4 py-3">
-      <div>
-        <div class="text-sm font-semibold">UAT Assertions</div>
-        <div id="uat-assertions-meta" class="text-xs text-slate-500"></div>
+  <aside id="uat-assertions-drawer" class="drawer translate-x-full">
+    <div class="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
+      <div class="min-w-0">
+        <div class="text-sm font-semibold">validation rules</div>
+        <div id="uat-assertions-meta" class="field-hint"></div>
+        <div id="uat-assertions-site" class="field-hint"></div>
       </div>
       <div class="flex items-center gap-2">
-        <button id="uat-assertions-download" class="rounded border px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50">Download JSON</button>
-        <button id="uat-assertions-close" class="rounded p-1 text-slate-500 hover:text-slate-700" aria-label="Close UAT assertions">
-          <svg xmlns="http://www.w3.org/2000/svg" class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-          </svg>
+        <button id="uat-assertions-download" type="button" class="btn btn-sm">Download JSON</button>
+        <button id="uat-assertions-close" type="button" class="btn btn-icon" aria-label="Close validation rules">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" class="h-4 w-4" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
         </button>
       </div>
     </div>
-    <div class="border-b px-4 py-3">
-      <label class="text-xs font-medium text-slate-600">Site</label>
-      <select id="uat-assertions-site" class="mt-1 w-full rounded border px-2 py-1 text-sm"></select>
-    </div>
-    <div id="uat-assertions-body" class="h-full overflow-y-auto px-4 py-3 text-sm text-slate-700"></div>
+    <div id="uat-assertions-body" class="h-full overflow-y-auto px-4 py-3 text-sm"></div>
   </aside>
-  <div id="uat-assertions-overlay" class="fixed inset-0 z-[65] hidden bg-slate-900/30"></div>
+  <div id="uat-assertions-overlay" class="fixed inset-0 z-[65] hidden bg-inset/80"></div>
+
+  <div id="uat-results" class="hidden"></div>
 
   <script type="module" src="app/main.js"></script>
 </body>

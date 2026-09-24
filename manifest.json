@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Launch Observer",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Observe and inspect analytics network calls with decoded payloads.",
   "action": {
     "default_title": "Launch Observer"
@@ -28,13 +28,14 @@
   "permissions": [
     "alarms",
     "storage",
+    "unlimitedStorage",
     "scripting",
     "tabs",
     "webRequest",
     "webNavigation"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: https://cdn.simpleicons.org"
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data:"
   },
   "host_permissions": [
     "<all_urls>"

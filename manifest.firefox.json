@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Launch Observer",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Observe and inspect analytics network calls with decoded payloads.",
   "browser_specific_settings": {
     "gecko": {
@@ -16,7 +16,7 @@
     "default_title": "Launch Observer"
   },
   "background": {
-    "scripts": ["background/firefox-background.js"]
+    "page": "background/firefox-background.html"
   },
   "content_scripts": [
     {
@@ -28,6 +28,7 @@
   "web_accessible_resources": ["content/inject.js"],
   "permissions": [
     "storage",
+    "unlimitedStorage",
     "tabs",
     "webRequest",
     "webNavigation",

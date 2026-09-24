@@ -18,8 +18,8 @@ const steps = [
   {
     id: 'uat-assertions',
     target: '[data-tour="uat-assertions"]',
-    title: 'UAT Assertions',
-    body: 'Import your site’s UAT assertion JSON here. Then enable “Perform UAT validations” when starting a session to see pass/fail results.'
+    title: 'Validation Rules',
+    body: 'Import your site’s validation rules JSON here, then turn on “Run validations” when starting a session to see pass/fail results.'
   },
   {
     id: 'sessions',
@@ -95,11 +95,12 @@ export function initTour() {
     tourButton.addEventListener('click', () => startTour(true));
   }
 
-  api.storage?.local?.get?.(TOUR_KEY, result => {
-    if (!result || !result[TOUR_KEY]) {
-      startTour(false);
-    }
-  });
+  try {
+    api.storage?.local?.get?.(TOUR_KEY, result => {
+      void api.runtime?.lastError;
+      if (!result || !result[TOUR_KEY]) startTour(false);
+    });
+  } catch {}
 }
 
 /**
@@ -108,9 +109,20 @@ export function initTour() {
  */
 export function startTour(manual) {
   if (!overlay) return;
+  // Mark the tour seen as soon as it auto-starts. Persisting only on
+  // Skip/Finish meant closing the window mid-tour left the flag unset, so it
+  // reappeared on every reload.
+  if (!manual) markTourSeen();
   overlay.classList.remove('hidden');
   activeIndex = 0;
   goTo(activeIndex);
+}
+
+/** Record that the tour has been shown. */
+function markTourSeen() {
+  try {
+    api.storage?.local?.set?.({ [TOUR_KEY]: true });
+  } catch {}
 }
 
 /**
@@ -216,7 +228,5 @@ function positionForTarget(target) {
  */
 function endTour(persist) {
   overlay.classList.add('hidden');
-  if (persist) {
-    api.storage?.local?.set?.({ [TOUR_KEY]: true });
-  }
+  if (persist) markTourSeen();
 }
