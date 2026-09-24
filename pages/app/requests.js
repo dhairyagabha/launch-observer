@@ -132,7 +132,7 @@ export function renderList() {
         return `
           <button type="button" data-request-id="${escapeHtml(req.id)}"
             class="grid w-full grid-cols-[16px_46px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-line-soft px-3 py-2 text-left hover:bg-surface ${selected ? 'bg-surface' : ''}"
-            ${selected ? 'aria-current="true" style="box-shadow:inset 2px 0 0 #1f6feb"' : ''}>
+            ${selected ? 'aria-current="true" style="box-shadow:inset 2px 0 0 rgb(var(--c-accent))"' : ''}>
             <span class="grid place-items-center">${statusIcon(req)}</span>
             <span class="vendor-code" style="border-color:${badge.color};color:${badge.color}">${escapeHtml(badge.code)}</span>
             <span class="flex min-w-0 flex-col leading-[1.35]">

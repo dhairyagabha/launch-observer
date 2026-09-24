@@ -87,3 +87,41 @@ test('the storage meter track stays distinct from the dialog behind it', () => {
     );
   }
 });
+
+/**
+ * The same collision, one component over: the sidebar is `bg-inset`, and the
+ * selected session row used to fill with `bg-surface` — identical to
+ * `--c-inset` in the light palette — so the active session was painted exactly
+ * the colour behind it and could not be picked out. Its hover fill had the
+ * same defect.
+ */
+const sessionsJs = await readFile(new URL('../pages/app/sessions.js', import.meta.url), 'utf8');
+
+test('the selected session row stays distinct from the sidebar behind it', () => {
+  const sidebar = html.match(/<aside id="sidebar" class="([^"]*)"/);
+  assert.ok(sidebar, 'found the sidebar');
+  assert.equal(sidebar[1].match(/\bbg-([\w-]+)\b/)?.[1], 'inset', 'the sidebar is still bg-inset');
+
+  const row = sessionsJs.match(/<div class="group grid[^"]*"/);
+  assert.ok(row, 'found the session row');
+  const branch = row[0].match(/\$\{isSelected \? '([^']*)' : '([^']*)'\}/);
+  assert.ok(branch, 'the row picks its fill from isSelected');
+
+  const fills = {
+    selected: branch[1].match(/\bbg-([\w-]+)/)?.[1],
+    hover: branch[2].match(/hover:bg-([\w-]+)/)?.[1]
+  };
+  assert.ok(fills.selected, 'the selected row paints a bg-* utility');
+  assert.ok(fills.hover, 'an unselected row still has a hover fill');
+
+  for (const [theme, tokens] of Object.entries(THEMES)) {
+    for (const [label, token] of Object.entries(fills)) {
+      assert.ok(tokens[token], `${theme}: --c-${token} is defined`);
+      assert.notEqual(
+        tokens[token],
+        tokens.inset,
+        `${theme}: the ${label} session row (bg-${token}) must not be the same colour as the sidebar`
+      );
+    }
+  }
+});

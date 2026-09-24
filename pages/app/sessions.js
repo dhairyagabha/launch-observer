@@ -44,9 +44,14 @@ export function renderSessions() {
         ? 'checks off'
         : (fails ? `${fails} failing` : 'checks ok');
       const uatTone = session.uatEnabled && fails ? 'text-danger' : 'text-muted';
+      // The sidebar is bg-inset, and in the light theme --c-inset and
+      // --c-surface are the same value, so the old bg-surface selection (and
+      // its hover) painted the row the exact colour behind it and vanished.
+      // Accent tint plus the rail marks the active row the way the request
+      // list does, and both tokens differ from inset in either theme.
       return `
-        <div class="group grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 rounded px-2 py-1.5 ${isSelected ? 'bg-surface' : ''} hover:bg-surface">
-          <button type="button" data-session-id="${escapeHtml(session.id)}" class="col-start-1 truncate text-left ${isSelected ? 'font-semibold' : ''}">${escapeHtml(session.name || 'Untitled')}</button>
+        <div class="group grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 rounded px-2 py-1.5 ${isSelected ? 'bg-accent/20 shadow-[inset_2px_0_0_rgb(var(--c-accent))]' : 'hover:bg-raised-hover'}">
+          <button type="button" data-session-id="${escapeHtml(session.id)}" ${isSelected ? 'aria-current="true"' : ''} class="col-start-1 truncate text-left ${isSelected ? 'font-semibold' : ''}">${escapeHtml(session.name || 'Untitled')}</button>
           <span class="col-start-2 row-start-1 flex items-center gap-1">
             <span class="pill">${count}</span>
             <button type="button" data-rename-id="${escapeHtml(session.id)}" class="btn btn-icon h-5 w-5 opacity-0 group-hover:opacity-100" title="Rename session" aria-label="Rename session">
