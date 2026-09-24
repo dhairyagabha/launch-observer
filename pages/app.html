@@ -420,14 +420,15 @@
       <div class="modal-head">
         <div class="flex min-w-0 flex-1 flex-col gap-0.5">
           <h2 class="modal-title">Session idle</h2>
+          <span class="field-hint">Still recording, but nothing has arrived for a while.</span>
         </div>
       </div>
       <div class="modal-body">
-        <div class="text-sm text-muted">No requests were captured in the last 5 minutes. Extend the session or stop it now?</div>
+        <div class="text-sm text-muted">No requests were captured in the last 5 minutes. Keep this session recording, or stop it and keep what was captured so far.</div>
       </div>
       <div class="modal-foot">
-        <button id="session-idle-extend" type="button" class="btn">Extend</button>
-        <button id="session-idle-stop" type="button" class="btn btn-primary">Stop session</button>
+        <button id="session-idle-stop" type="button" class="btn btn-danger">Stop session</button>
+        <button id="session-idle-extend" type="button" class="btn btn-primary">Keep recording</button>
       </div>
     </form>
   </dialog>

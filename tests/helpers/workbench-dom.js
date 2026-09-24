@@ -27,17 +27,23 @@ export async function bootWorkbench(options = {}) {
   const dom = new JSDOM(html, { url: 'https://localhost/pages/app.html', pretendToBeVisual: true });
   const { window } = dom;
 
+  // Every message the UI sends to the background, in order, so tests can assert
+  // on what the page asked for. Background broadcasts are replayed via `emit`.
+  const sent = [];
+  const listeners = [];
+
   window.chrome = {
     runtime: {
       lastError: null,
       getURL: p => p,
       sendMessage: (msg, cb) => {
+        sent.push(msg);
         const reply = msg.type === 'getState'
           ? state
           : msg.type === 'getSettings' ? { settings: state.settings } : { ok: true };
         if (cb) cb(reply);
       },
-      onMessage: { addListener: () => {} }
+      onMessage: { addListener: fn => listeners.push(fn) }
     },
     tabs: { query: (q, cb) => cb && cb([{ id: 1, title: 'Example', url: 'https://example.com' }]) },
     storage: {
@@ -80,6 +86,14 @@ export async function bootWorkbench(options = {}) {
     window,
     document: window.document,
     storage,
+    sent,
+    /**
+     * Replay a background broadcast to the page's runtime.onMessage listeners.
+     * @param {object} message
+     */
+    emit(message) {
+      listeners.forEach(fn => fn(message, {}, () => {}));
+    },
     cleanup() {
       for (const [key, value] of saved) Reflect.set(globalThis, key, value);
       window.close();

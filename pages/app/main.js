@@ -698,6 +698,16 @@ if (elements.sessionIdleStop) {
   });
 }
 
+// Esc closes the dialog without answering it. The background only re-arms the
+// idle check when it hears `idleExtend`, so a dismissed prompt used to leave
+// the session recording with the safeguard disarmed for good. `cancel` fires
+// only for Esc, never for the programmatic close() the buttons above do.
+if (elements.sessionIdleDialog) {
+  elements.sessionIdleDialog.addEventListener('cancel', () => {
+    api.runtime.sendMessage({ type: 'idleExtend' }, () => {});
+  });
+}
+
 if (elements.openHelp) {
   elements.openHelp.addEventListener('click', () => {
     elements.helpDialog?.showModal();
