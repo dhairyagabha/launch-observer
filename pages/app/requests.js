@@ -226,7 +226,6 @@ export function selectRequest(id) {
 
   elements.emptyState.classList.add('hidden');
   elements.observingState.classList.add('hidden');
-  elements.observingState.classList.remove('flex');
   elements.details.classList.remove('hidden');
   elements.details.classList.add('flex');
 

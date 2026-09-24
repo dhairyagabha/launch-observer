@@ -137,7 +137,6 @@ export function selectSession(id) {
     elements.details.classList.add('hidden');
     elements.details.classList.remove('flex');
     elements.observingState.classList.remove('hidden');
-    elements.observingState.classList.add('flex');
     elements.emptyState.classList.add('hidden');
     applySearch();
     renderSessions();
@@ -161,7 +160,6 @@ export function deleteSession(id) {
     elements.details.classList.remove('flex');
     if (state.settings?.selectedSessionId) {
       elements.observingState.classList.remove('hidden');
-      elements.observingState.classList.add('flex');
     } else {
       elements.emptyState.classList.remove('hidden');
     }

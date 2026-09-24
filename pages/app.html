@@ -20,8 +20,10 @@
     <!-- ============================ Header ============================ -->
     <header class="flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-2.5 border-b border-line bg-inset px-4 py-2.5">
       <div class="grid h-[30px] w-[30px] flex-none place-items-center rounded border border-line bg-surface">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-fg" aria-hidden="true">
-          <circle cx="12" cy="12" r="3"></circle><path d="M12 2v3"></path><path d="M12 19v3"></path><path d="M2 12h3"></path><path d="M19 12h3"></path><circle cx="12" cy="12" r="8"></circle>
+        <!-- The product mark from icons/logo.svg, drawn in currentColor so it
+             follows the theme instead of carrying the logo's own navy tile. -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="h-[18px] w-[18px] text-fg" aria-hidden="true">
+          <path d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"></path>
         </svg>
       </div>
       <div class="flex min-w-0 items-center gap-1.5 text-base">
@@ -144,7 +146,11 @@
         <div id="empty-state" class="flex h-full items-center justify-center px-6 text-center text-sm text-muted">
           Select a request to inspect its details.
         </div>
-        <div id="observing-state" class="hidden h-full items-center justify-center px-6 text-center text-sm text-muted">
+        <!-- `hidden flex` is deliberate, and mirrors #empty-state at runtime:
+             the reveal sites only toggle `hidden`, and .hidden is emitted after
+             .flex so it wins while closed. Dropping `flex` leaves the centring
+             classes inert and the text pinned to the top of the pane. -->
+        <div id="observing-state" class="hidden flex h-full items-center justify-center px-6 text-center text-sm text-muted">
           Observing for calls…
         </div>
         <div id="details" class="hidden min-h-0 flex-1 flex-col">
@@ -255,7 +261,7 @@
           <span class="pt-0.5">
             <input id="enable-hooks" type="checkbox" class="peer sr-only" />
             <span class="checkbox peer-checked:border-accent peer-checked:bg-accent peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-accent">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" class="hidden h-2.5 w-2.5 peer-checked:block" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" class="hidden h-2.5 w-2.5" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
             </span>
           </span>
           <span class="flex flex-col gap-0.5">
@@ -320,7 +326,7 @@
           <label class="flex cursor-pointer items-center gap-2.5 text-left">
             <input id="session-uat-toggle" type="checkbox" class="peer sr-only" />
             <span class="checkbox peer-checked:border-accent peer-checked:bg-accent peer-disabled:opacity-50">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" class="hidden h-2.5 w-2.5 peer-checked:block" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" class="hidden h-2.5 w-2.5" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
             </span>
             <span class="text-sm">Run validations while capturing</span>
           </label>
@@ -354,7 +360,10 @@
             <span class="field-label">Local storage</span>
             <span id="data-usage-label" class="field-hint"></span>
           </div>
-          <span class="flex h-2 overflow-hidden rounded-pill bg-raised">
+          <!-- bg-line, not bg-raised: in the light palette raised, inset and
+               surface are the same value, so a raised track is invisible
+               against the dialog. Matches the header bar's unfilled segment. -->
+          <span class="flex h-2 overflow-hidden rounded-pill bg-line">
             <span id="data-usage-bar" class="bg-accent" style="width:0%"></span>
           </span>
           <span id="data-usage-detail" class="field-hint"></span>

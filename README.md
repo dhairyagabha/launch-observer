@@ -51,6 +51,29 @@ npm install
 npm run build:css
 ```
 
+## Preview the UI in a Browser
+```
+npm run build:css
+npm run preview            # http://127.0.0.1:8731/pages/app.html
+npm run preview -- 9000    # a different port
+```
+Serves the real `pages/app.html` with the extension APIs faked, so the
+workbench can be driven in a browser without loading the extension. It reads
+straight from the working tree — edit `pages/`, `styles/` or `lib/` and
+reload (re-run `build:css` after changing Tailwind classes).
+
+The fixture is `sampleState()` from `tests/helpers/sample-state.js`, the same
+one the jsdom tests use, so the two can never disagree. In the page console:
+`__loStub.reset()` clears persisted flags and replays the first-run tour, and
+`__errs` lists anything the page threw.
+
+Use it for what jsdom cannot judge: real layout at real widths, contrast in
+both themes, and whether transitions actually move. The tests pass on markup
+that renders wrong — an inert `flex`, a palette token that matches the surface
+behind it, a `peer-*` variant that reaches nothing — and only a browser shows
+it. Loading the unpacked extension is still the only way to exercise the
+toolbar popup window, live capture, and the page hooks.
+
 ## Code Layout
 UI code is modularized under `pages/app/`:
 - `main.js` — wiring, event listeners, runtime messages

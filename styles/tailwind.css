@@ -337,6 +337,15 @@
     @apply border-accent bg-accent;
   }
 
+  /* The tick is a child of .checkbox, so it is a descendant of the peer
+     input's sibling rather than a sibling itself. Tailwind compiles
+     `peer-checked:` to `.peer:checked ~ …`, which can never reach it — the
+     box would turn blue while the tick stayed hidden. Out-specifies the
+     `hidden` utility the markup uses as the default state. */
+  .peer:checked ~ .checkbox svg {
+    @apply block;
+  }
+
   .switch {
     @apply flex h-5 w-[34px] flex-none cursor-pointer items-center rounded-pill border border-line bg-raised p-0.5;
   }
