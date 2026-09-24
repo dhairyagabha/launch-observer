@@ -28,13 +28,14 @@
   "permissions": [
     "alarms",
     "storage",
+    "unlimitedStorage",
     "scripting",
     "tabs",
     "webRequest",
     "webNavigation"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: https://cdn.simpleicons.org"
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data:"
   },
   "host_permissions": [
     "<all_urls>"

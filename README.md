@@ -63,12 +63,27 @@ UI code is modularized under `pages/app/`:
 - `utils.js` — formatting + helpers
 
 Background and content scripts:
-- `background/service-worker.js`
+- `background/core.js` — all capture, session, and UAT logic, shared by both builds
+- `background/service-worker.js` — Chrome/Edge MV3 entry (MAIN-world injection, alarms)
+- `background/firefox-background.js` — Firefox MV2 entry, loaded as a module from
+  `background/firefox-background.html`
 - `content/content.js`
 - `content/inject.js`
 
+Both browser entry points are thin adapters over `background/core.js`, so capture
+logic is written once. `tests/firefox-uat-resolve.test.js` enforces that the
+Firefox entry never grows its own copy of `lib/`.
+
 ## Notes
 - Requests are stored in `chrome.storage.local` and capped by `maxEntries` (default: 2000).
+- Writes to storage are debounced, so capture bursts do not rewrite the whole
+  request list per network event. If a write still exceeds the storage quota,
+  the oldest half is dropped and the UI is notified.
+- Page hooks only stay installed while **Enable hooks** is on. On every other
+  page the injected script removes its `fetch`/`XHR`/`sendBeacon` wrappers as
+  soon as settings arrive.
+- Captured payloads are only handed from the page to the extension when the
+  request URL matches the allowlist; nothing else leaves the page context.
 - Allowlist matches exact domain or any subdomain.
 - The UI entrypoint is `pages/app/main.js` (loaded as an ES module).
 - Hook debug logging can be toggled from the extension page console:

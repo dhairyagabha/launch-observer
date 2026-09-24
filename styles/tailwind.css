@@ -2,10 +2,426 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Theme tokens.
+ *
+ * `data-theme` on <html> selects the palette; when it is absent or set to
+ * "system" the OS preference decides. Every Tailwind colour in this project
+ * resolves through these variables, so a theme switch repaints everything
+ * without a second set of classes.
+ */
+:root,
+:root[data-theme='dark'] {
+  --c-canvas: 13 17 23;
+  --c-inset: 1 4 9;
+  --c-surface: 22 27 34;
+  --c-raised: 33 38 45;
+  --c-raised-hover: 41 46 54;
+  --c-line: 48 54 61;
+  --c-line-soft: 33 38 45;
+  --c-line-strong: 54 59 66;
+  --c-fg: 230 237 243;
+  --c-muted: 139 148 158;
+  --c-dim: 110 118 129;
+  --c-link: 68 147 248;
+  --c-accent: 31 111 235;
+  --c-json-key: 121 192 255;
+  --c-json-str: 165 214 255;
+  --c-ok: 63 185 80;
+  --c-ok-solid: 35 134 54;
+  --c-ok-solid-hover: 41 144 59;
+  --c-danger: 248 81 73;
+  --c-danger-solid: 218 54 51;
+  --c-warn: 210 153 34;
+  --c-violet: 163 113 247;
+  --c-pink: 219 97 162;
+
+  --tint-ok: 46 160 67;
+  --tint-danger: 248 81 73;
+  --tint-accent: 56 139 253;
+  --tint-mark: 187 128 9;
+  --scrollbar: 48 54 61;
+  --scrollbar-hover: 65 74 84;
+  --shadow-overlay: 0 8px 24px rgb(1 4 9 / 0.85);
+  --backdrop: rgb(1 4 9 / 0.8);
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --c-canvas: 255 255 255;
+  --c-inset: 246 248 250;
+  --c-surface: 246 248 250;
+  --c-raised: 246 248 250;
+  --c-raised-hover: 235 239 242;
+  --c-line: 209 217 224;
+  --c-line-soft: 229 233 237;
+  --c-line-strong: 209 217 224;
+  --c-fg: 31 35 40;
+  --c-muted: 89 99 110;
+  --c-dim: 129 139 152;
+  --c-link: 9 105 218;
+  --c-accent: 9 105 218;
+  --c-json-key: 5 80 174;
+  --c-json-str: 10 48 105;
+  --c-ok: 26 127 55;
+  --c-ok-solid: 31 136 61;
+  --c-ok-solid-hover: 26 127 55;
+  --c-danger: 207 34 46;
+  --c-danger-solid: 164 14 38;
+  --c-warn: 154 103 0;
+  --c-violet: 130 80 223;
+  --c-pink: 191 57 137;
+
+  --tint-ok: 31 136 61;
+  --tint-danger: 207 34 46;
+  --tint-accent: 9 105 218;
+  --tint-mark: 154 103 0;
+  --scrollbar: 209 217 224;
+  --scrollbar-hover: 175 184 193;
+  --shadow-overlay: 0 8px 24px rgb(31 35 40 / 0.16);
+  --backdrop: rgb(31 35 40 / 0.45);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']):not([data-theme='light']) {
+    --c-canvas: 255 255 255;
+    --c-inset: 246 248 250;
+    --c-surface: 246 248 250;
+    --c-raised: 246 248 250;
+    --c-raised-hover: 235 239 242;
+    --c-line: 209 217 224;
+    --c-line-soft: 229 233 237;
+    --c-line-strong: 209 217 224;
+    --c-fg: 31 35 40;
+    --c-muted: 89 99 110;
+    --c-dim: 129 139 152;
+    --c-link: 9 105 218;
+    --c-accent: 9 105 218;
+    --c-json-key: 5 80 174;
+    --c-json-str: 10 48 105;
+    --c-ok: 26 127 55;
+    --c-ok-solid: 31 136 61;
+    --c-ok-solid-hover: 26 127 55;
+    --c-danger: 207 34 46;
+    --c-danger-solid: 164 14 38;
+    --c-warn: 154 103 0;
+    --c-violet: 130 80 223;
+    --c-pink: 191 57 137;
+
+    --tint-ok: 31 136 61;
+    --tint-danger: 207 34 46;
+    --tint-accent: 9 105 218;
+    --tint-mark: 154 103 0;
+    --scrollbar: 209 217 224;
+    --scrollbar-hover: 175 184 193;
+    --shadow-overlay: 0 8px 24px rgb(31 35 40 / 0.16);
+    --backdrop: rgb(31 35 40 / 0.45);
+    color-scheme: light;
+  }
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+    @apply bg-canvas text-fg;
+  }
+
+  body {
+    @apply font-sans text-sm;
+  }
+
+  a {
+    @apply text-link no-underline;
+  }
+
+  a:hover {
+    @apply underline;
+  }
+
+  ::selection {
+    background: rgb(var(--tint-accent) / 0.4);
+  }
+
+  :focus-visible {
+    outline: 2px solid theme('colors.accent');
+    outline-offset: -2px;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-dim;
+  }
+
+  /* Native form controls default to a light canvas; keep them on-theme. */
+  select option {
+    @apply bg-canvas text-fg;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded;
+    background: rgb(var(--scrollbar));
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--scrollbar-hover));
+  }
+
+  dialog::backdrop {
+    background: var(--backdrop);
+  }
+}
+
 @layer components {
-  .token.key { color: #0f172a; font-weight: 600; }
-  .token.string { color: #0ea5e9; }
-  .token.number { color: #a855f7; }
-  .token.boolean { color: #16a34a; }
-  .token.null { color: #94a3b8; }
+  /* ---- Buttons ---------------------------------------------------- */
+  .btn {
+    @apply inline-flex h-8 flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded
+           border border-line-strong bg-raised px-3 text-sm font-medium text-fg
+           transition-colors;
+  }
+
+  .btn:hover:not(:disabled) {
+    @apply border-muted bg-raised-hover;
+  }
+
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  .btn-sm {
+    @apply h-7 px-2.5 text-xs;
+  }
+
+  .btn-primary {
+    @apply border-white/10 bg-ok-solid font-semibold text-white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    @apply border-white/10 bg-ok-solid-hover;
+  }
+
+  .btn-danger {
+    @apply text-danger;
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    @apply border-danger bg-danger-solid text-white;
+  }
+
+  .btn-ghost {
+    @apply border-transparent bg-transparent;
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    @apply border-transparent bg-surface;
+  }
+
+  .btn-icon {
+    @apply grid h-8 w-8 flex-none place-items-center rounded border-0 bg-transparent p-0 text-muted;
+  }
+
+  .btn-icon:hover:not(:disabled) {
+    @apply bg-line text-fg;
+  }
+
+  .btn-icon-danger:hover:not(:disabled) {
+    background: rgb(var(--tint-danger) / 0.1);
+    @apply text-danger;
+  }
+
+  .btn-link {
+    @apply border-0 bg-transparent p-0 text-sm text-link;
+  }
+
+  .btn-link:hover {
+    @apply cursor-pointer underline;
+  }
+
+  /* ---- Inputs ----------------------------------------------------- */
+  .input,
+  .select {
+    @apply h-8 w-full rounded border border-line bg-canvas px-2.5 text-sm text-fg;
+  }
+
+  .input:focus,
+  .select:focus {
+    @apply border-accent outline-none;
+    box-shadow: 0 0 0 1px theme('colors.accent');
+  }
+
+  .input-sm {
+    @apply h-7 text-xs;
+  }
+
+  .field-label {
+    @apply text-sm font-semibold text-fg;
+  }
+
+  .field-hint {
+    @apply text-xs text-muted;
+  }
+
+  .field-error {
+    @apply text-xs text-danger;
+  }
+
+  /* ---- Surfaces --------------------------------------------------- */
+  .panel {
+    @apply overflow-hidden rounded border border-line;
+  }
+
+  .panel-head {
+    @apply flex items-center justify-between gap-2 border-b border-line bg-surface px-3 py-1.5;
+  }
+
+  .row-sep {
+    @apply border-t border-line-soft;
+  }
+
+  /* ---- Pills and badges ------------------------------------------- */
+  .pill {
+    @apply inline-flex items-center rounded-pill px-1.5 text-xs leading-[18px] text-fg;
+    background: theme('colors.line');
+  }
+
+  .pill-outline {
+    @apply inline-flex items-center rounded-pill border border-line px-2 text-xs leading-[18px] text-muted;
+    background: transparent;
+  }
+
+  .pill-pass {
+    @apply inline-flex items-center rounded-pill border px-2 text-2xs font-medium leading-[18px] text-ok;
+    border-color: rgb(var(--tint-ok) / 0.35);
+    background: rgb(var(--tint-ok) / 0.12);
+  }
+
+  .pill-fail {
+    @apply inline-flex items-center rounded-pill border px-2 text-2xs font-medium leading-[18px] text-danger;
+    border-color: rgb(var(--tint-danger) / 0.4);
+    background: rgb(var(--tint-danger) / 0.12);
+  }
+
+  .pill-solid-pass {
+    @apply inline-flex items-center gap-1 rounded-pill bg-ok-solid px-2.5 text-xs font-medium leading-[22px] text-white;
+  }
+
+  .pill-solid-fail {
+    @apply inline-flex items-center gap-1 rounded-pill bg-danger-solid px-2.5 text-xs font-medium leading-[22px] text-white;
+  }
+
+  .vendor-code {
+    @apply inline-flex items-center justify-center rounded-pill border px-1 text-center font-mono text-[10px] font-semibold leading-[18px];
+  }
+
+  .kbd {
+    @apply inline-flex items-center rounded border border-line border-b-2 px-1.5 font-mono text-2xs text-muted;
+  }
+
+  /* ---- Checkbox / switch ------------------------------------------ */
+  .checkbox {
+    @apply grid h-4 w-4 flex-none place-items-center rounded-sm border border-line bg-canvas;
+  }
+
+  .checkbox-on {
+    @apply border-accent bg-accent;
+  }
+
+  .switch {
+    @apply flex h-5 w-[34px] flex-none cursor-pointer items-center rounded-pill border border-line bg-raised p-0.5;
+  }
+
+  .switch-on {
+    @apply justify-end border-ok-solid bg-ok-solid;
+  }
+
+  .switch-knob {
+    @apply block h-3.5 w-3.5 rounded-full bg-fg;
+  }
+
+  /* ---- Dialogs ---------------------------------------------------- */
+  .modal {
+    @apply w-full rounded-xl border border-line bg-surface p-0 text-fg;
+    max-height: calc(100vh - 48px);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .modal-head {
+    @apply flex items-start gap-3 border-b border-line p-4;
+  }
+
+  .modal-title {
+    @apply m-0 text-base font-semibold;
+  }
+
+  .modal-body {
+    @apply flex flex-col gap-4 overflow-y-auto p-4;
+  }
+
+  .modal-foot {
+    @apply flex items-center justify-end gap-2 border-t border-line px-4 py-3;
+  }
+
+  /* No transform here: the open/close JS toggles `translate-x-full`, and a
+     baked-in transform would win and pin the drawer off-screen. */
+  .drawer {
+    @apply fixed inset-y-0 right-0 z-[70] w-full max-w-md border-l border-line bg-surface transition-transform duration-200;
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .dropzone {
+    @apply flex w-full cursor-pointer flex-col items-center gap-1.5 rounded border border-dashed border-line bg-canvas p-4 text-center text-fg;
+  }
+
+  .dropzone:hover {
+    @apply border-accent;
+    background: rgb(var(--tint-accent) / 0.08);
+  }
+
+  /* ---- Tabs ------------------------------------------------------- */
+  .tab-button {
+    @apply -mb-px flex flex-none cursor-pointer items-center gap-1.5 whitespace-nowrap
+           border-0 border-b-2 border-transparent bg-transparent px-2.5 pb-2 pt-1.5
+           text-sm text-fg;
+  }
+
+  .tab-button[aria-current='page'] {
+    @apply border-b-2 border-fg font-semibold;
+  }
+
+  /* ---- JSON / payload tokens -------------------------------------- */
+  .token.key {
+    @apply text-json-key;
+  }
+
+  .token.string {
+    @apply text-json-str;
+  }
+
+  .token.number {
+    @apply text-violet;
+  }
+
+  .token.boolean {
+    @apply text-ok;
+  }
+
+  .token.null {
+    @apply text-dim;
+  }
+
+  mark {
+    @apply rounded-sm px-0.5 text-fg;
+    background: rgb(var(--tint-mark) / 0.25);
+  }
 }

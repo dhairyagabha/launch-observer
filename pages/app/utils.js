@@ -68,6 +68,43 @@ export function highlightText(text, term) {
 }
 
 /**
+ * Coalesce rapid calls into one, run on the next animation frame.
+ *
+ * Capture bursts fire many list updates per second; the list only needs to
+ * reach the screen once per frame.
+ * @param {Function} fn
+ * @returns {Function}
+ */
+export function rafThrottle(fn) {
+  let scheduled = false;
+  return function throttled(...args) {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      fn.apply(this, args);
+    });
+  };
+}
+
+/**
+ * Delay a call until input settles.
+ * @param {Function} fn
+ * @param {number} wait
+ * @returns {Function}
+ */
+export function debounce(fn, wait) {
+  let timer = null;
+  return function debounced(...args) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      fn.apply(this, args);
+    }, wait);
+  };
+}
+
+/**
  * Create a stable numeric hash for a string.
  * @param {string} value
  * @returns {number}
@@ -92,6 +129,36 @@ export function toTitleCase(value) {
   return spaced.replace(/\b\w/g, c => c.toUpperCase());
 }
 
+const UNSAFE_URL_ATTRS = new Set(['href', 'src', 'xlink:href', 'action', 'formaction']);
+
+/**
+ * Strip anything executable from a parsed fragment.
+ *
+ * DOMParser does not run `<script>`, but inline handlers such as
+ * `<img onerror=...>` do fire as soon as the node is adopted into the live
+ * document, so they have to come off before that happens.
+ * @param {DocumentFragment|Element} root
+ */
+function sanitizeFragment(root) {
+  const elements = root.querySelectorAll('*');
+  for (const element of elements) {
+    if (element.tagName === 'SCRIPT') {
+      element.remove();
+      continue;
+    }
+    for (const attr of Array.from(element.attributes)) {
+      const name = attr.name.toLowerCase();
+      if (name.startsWith('on')) {
+        element.removeAttribute(attr.name);
+        continue;
+      }
+      if (UNSAFE_URL_ATTRS.has(name) && /^\s*javascript:/i.test(attr.value)) {
+        element.removeAttribute(attr.name);
+      }
+    }
+  }
+}
+
 /**
  * Safely set HTML content by parsing into DOM nodes.
  * @param {Element} target
@@ -99,7 +166,8 @@ export function toTitleCase(value) {
  */
 export function setHTML(target, html) {
   if (!target) return;
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  target.replaceChildren(...doc.body.childNodes);
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  sanitizeFragment(template.content);
+  target.replaceChildren(template.content);
 }

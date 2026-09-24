@@ -1,26 +1,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import vm from 'node:vm';
+import { getValueAtPath } from '../lib/uat/resolve.js';
 
-const firefoxBackgroundUrl = new URL('../background/firefox-background.js', import.meta.url);
+const firefoxBackground = new URL('../background/firefox-background.js', import.meta.url);
+const serviceWorker = new URL('../background/service-worker.js', import.meta.url);
 
-async function loadFirefoxPathResolver() {
-  const source = await readFile(firefoxBackgroundUrl, 'utf8');
-  const start = source.indexOf('function getValueAtPath');
-  const end = source.indexOf('/**\n * Count request matches', start);
+/**
+ * The Firefox background used to inline its own copy of lib/, which meant every
+ * parser fix had to be written twice and silently drifted when it was not.
+ * These tests pin the arrangement that makes that impossible.
+ */
+test('Firefox background shares core.js instead of inlining lib', async () => {
+  const source = await readFile(firefoxBackground, 'utf8');
+  assert.match(source, /import \{[^}]*start[^}]*\} from '\.\/core\.js'/);
+  assert.doesNotMatch(source, /function getValueAtPath/);
+  assert.doesNotMatch(source, /function parseRawBody/);
+  assert.doesNotMatch(source, /const SERVICE_CATALOG/);
+});
 
-  assert.notEqual(start, -1, 'Firefox getValueAtPath implementation was not found');
-  assert.notEqual(end, -1, 'Firefox path resolver boundary was not found');
+test('both background entry points delegate to the same core', async () => {
+  const [firefox, chrome] = await Promise.all([
+    readFile(firefoxBackground, 'utf8'),
+    readFile(serviceWorker, 'utf8')
+  ]);
+  assert.match(firefox, /from '\.\/core\.js'/);
+  assert.match(chrome, /from '\.\/core\.js'/);
+});
 
-  const context = {};
-  const resolverSource = source.slice(start, end);
-  vm.runInNewContext(`${resolverSource}\nthis.getValueAtPath = getValueAtPath;`, context);
-  return context.getValueAtPath;
-}
-
-test('Firefox resolves bracket array indexes in payload paths', async () => {
-  const getValueAtPath = await loadFirefoxPathResolver();
+test('resolves bracket array indexes in payload paths', () => {
   const payload = {
     events: [
       {

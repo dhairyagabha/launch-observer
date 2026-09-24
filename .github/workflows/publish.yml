@@ -15,19 +15,17 @@ jobs:
         with:
           node-version: '20'
       - run: npm ci
+      - run: npm test
       - run: npm run build:css
-      - name: Create zip
-        run: |
-          zip -r launch-observer.zip . \
-            -x "node_modules/*" \
-            -x ".git/*" \
-            -x ".github/*" \
-            -x "dist/*" \
-            -x "README.md" \
-            -x "package.json" \
-            -x "package-lock.json" \
-            -x "tailwind.config.js"
+      # The build scripts stage only the files each browser loads, so the
+      # published packages never pick up tests, docs, or the other platform's
+      # entry points.
+      - run: npm run build:all
       - uses: actions/upload-artifact@v4
         with:
-          name: launch-observer
-          path: launch-observer.zip
+          name: launch-observer-chrome
+          path: dist/chrome.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: launch-observer-firefox
+          path: dist/firefox.zip

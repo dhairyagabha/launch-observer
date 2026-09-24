@@ -10,7 +10,7 @@ export function renderUatForRequest(req) {
   if (!elements.uatStatus) return;
   if (elements.uatOpenDrawer) elements.uatOpenDrawer.classList.add('hidden');
   if (!req) {
-    setStatusLine('idle', 'UAT not enabled for this session.');
+    setStatusLine('idle', 'Validation not enabled for this session.');
     return;
   }
   const uat = req.uat;
@@ -18,23 +18,23 @@ export function renderUatForRequest(req) {
     const session = state.sessions.find(s => s.id === state.settings?.selectedSessionId);
     const hasConfig = session?.site && state.uatConfigs?.[session.site];
     if (session?.uatEnabled && hasConfig) {
-      setStatusLine('skipped', 'UAT skipped');
+      setStatusLine('skipped', 'Validation skipped');
     } else {
-      setStatusLine('idle', 'UAT not enabled for this session.');
+      setStatusLine('idle', 'Validation not enabled for this session.');
     }
     return;
   }
   if (uat.status === 'pending') {
-    setStatusLine('loading', 'UAT validation in progress');
+    setStatusLine('loading', 'Validation in progress');
     return;
   }
   if (!uat.results || !uat.results.length) {
-    setStatusLine('skipped', 'UAT skipped');
+    setStatusLine('skipped', 'Validation skipped');
     return;
   }
   const applicableResults = uat.results.filter(r => r.applicable !== false);
   if (!applicableResults.length) {
-    setStatusLine('skipped', 'UAT skipped');
+    setStatusLine('skipped', 'Validation skipped');
     if (elements.uatOpenDrawer) {
       elements.uatOpenDrawer.classList.remove('hidden');
       elements.uatOpenDrawer.onclick = () => openUatDrawer(req);
@@ -43,9 +43,9 @@ export function renderUatForRequest(req) {
   }
   const failed = applicableResults.filter(r => r.status === 'failed');
   if (failed.length) {
-    setStatusLine('failed', 'UAT validation failed');
+    setStatusLine('failed', 'Validation failed');
   } else {
-    setStatusLine('passed', 'UAT validation passed');
+    setStatusLine('passed', 'Validation passed');
   }
   if (elements.uatOpenDrawer) {
     elements.uatOpenDrawer.classList.remove('hidden');
@@ -60,45 +60,17 @@ export function renderUatForRequest(req) {
  */
 function setStatusLine(state, label) {
   if (!elements.uatStatus) return;
-  let icon = '';
-  let toneClass = 'text-slate-500';
-  if (state === 'loading') {
-    icon = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4 text-slate-400 animate-spin">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v2m0 8v2m6-6h-2M8 12H6m9.07-4.07-1.41 1.41M8.34 15.66l-1.41 1.41m0-8.48 1.41 1.41m6.32 6.32 1.41 1.41" />
-      </svg>
-    `;
-    toneClass = 'text-slate-500';
-  } else if (state === 'passed') {
-    icon = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4 text-emerald-700">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-      </svg>
-    `;
-    toneClass = 'text-emerald-700';
-  } else if (state === 'failed') {
-    icon = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4 text-rose-700">
-        <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-      </svg>
-    `;
-    toneClass = 'text-rose-700';
-  } else if (state === 'skipped') {
-    icon = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4 text-slate-500">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
-      </svg>
-    `;
-    toneClass = 'text-slate-500';
-  } else {
-    icon = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4 text-slate-400">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-      </svg>
-    `;
-    toneClass = 'text-slate-500';
-  }
-  setHTML(elements.uatStatus, `${icon}<span class="${toneClass}">${escapeHtml(label)}</span>`);
+  const icons = {
+    loading: ['<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4 flex-none animate-spin text-muted"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v2m0 8v2m6-6h-2M8 12H6m9.07-4.07-1.41 1.41M8.34 15.66l-1.41 1.41m0-8.48 1.41 1.41m6.32 6.32 1.41 1.41" /></svg>', 'text-muted'],
+    passed: ['<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 flex-none text-ok"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>', 'text-ok'],
+    failed: ['<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="h-4 w-4 flex-none text-danger"><circle cx="12" cy="12" r="9"></circle><path d="m15 9-6 6"></path><path d="m9 9 6 6"></path></svg>', 'text-danger'],
+    skipped: ['<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3" class="h-4 w-4 flex-none text-dim"><circle cx="12" cy="12" r="9"></circle></svg>', 'text-muted']
+  };
+  const [icon, tone] = icons[state] || [
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 flex-none text-dim"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>',
+    'text-muted'
+  ];
+  setHTML(elements.uatStatus, `${icon}<span class="${tone}">${escapeHtml(label)}</span>`);
 }
 
 /**
@@ -114,10 +86,10 @@ export function openUatDetail(result) {
     const expected = cond.expected !== undefined ? JSON.stringify(cond.expected) : '—';
     return `
       <div class="rounded border px-3 py-2">
-        <div class="text-xs text-slate-500">${escapeHtml(cond.source)} · ${escapeHtml(cond.path || '(root)')} · ${escapeHtml(cond.operator)}</div>
+        <div class="text-xs text-muted">${escapeHtml(cond.source)} · ${escapeHtml(cond.path || '(root)')} · ${escapeHtml(cond.operator)}</div>
         <div class="mt-1 text-sm"><span class="font-semibold">Expected:</span> ${escapeHtml(expected)}</div>
         <div class="text-sm"><span class="font-semibold">Actual:</span> ${escapeHtml(actual)}</div>
-        <div class="mt-1 text-xs ${cond.passed ? 'text-emerald-600' : 'text-rose-600'}">${cond.passed ? 'Passed' : 'Failed'}</div>
+        <div class="mt-1 text-xs ${cond.passed ? 'text-ok' : 'text-danger'}">${cond.passed ? 'Passed' : 'Failed'}</div>
       </div>
     `;
   }).join('');
@@ -125,7 +97,7 @@ export function openUatDetail(result) {
   const conditionsHtml = (result.conditions && result.conditions.length)
     ? `
       <div>
-        <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Applicability conditions</div>
+        <div class="text-xs font-semibold uppercase tracking-wide text-dim mb-2">Applicability conditions</div>
         <div class="space-y-2">${renderList(result.conditions)}</div>
       </div>
     `
@@ -134,7 +106,7 @@ export function openUatDetail(result) {
   const validationsHtml = (result.validations && result.validations.length)
     ? `
       <div>
-        <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Validations</div>
+        <div class="text-xs font-semibold uppercase tracking-wide text-dim mb-2">Validations</div>
         <div class="space-y-2">${renderList(result.validations)}</div>
       </div>
     `
@@ -143,7 +115,7 @@ export function openUatDetail(result) {
   const countHtml = result.count
     ? `
       <div class="rounded border px-3 py-2">
-        <div class="text-xs text-slate-500">Count validation · ${escapeHtml(result.count.count || '')}</div>
+        <div class="text-xs text-muted">Count validation · ${escapeHtml(result.count.count || '')}</div>
         <div class="mt-1 text-sm"><span class="font-semibold">Expected:</span> ${escapeHtml(String(result.count.expected))}</div>
         <div class="text-sm"><span class="font-semibold">Actual:</span> ${escapeHtml(String(result.count.actual))}</div>
       </div>
@@ -169,7 +141,7 @@ export function closeUatDetail() {
 }
 
 /**
- * Open the UAT results drawer for a request.
+ * Open the Validation results drawer for a request.
  * @param {object} req
  */
 export function openUatDrawer(req) {
@@ -186,7 +158,7 @@ export function openUatDrawer(req) {
 }
 
 /**
- * Close the UAT results drawer.
+ * Close the Validation results drawer.
  */
 export function closeUatDrawer() {
   elements.uatDrawer?.classList.add('translate-x-full');
@@ -204,19 +176,21 @@ function renderUatDrawerResults(results) {
     passed: results.filter(r => r.status === 'passed' && r.applicable !== false),
     skipped: results.filter(r => r.status === 'skipped' || r.applicable === false)
   };
+  // Explicit class names: Tailwind cannot see a class built by interpolation,
+  // so a `text-${tone}-700` form would be purged from the built stylesheet.
   const sections = [
-    { key: 'failed', tone: 'rose' },
-    { key: 'passed', tone: 'emerald' },
-    { key: 'skipped', tone: 'slate' }
+    { key: 'failed', tone: 'text-danger' },
+    { key: 'passed', tone: 'text-ok' },
+    { key: 'skipped', tone: 'text-muted' }
   ];
   return sections.map(section => {
     const items = grouped[section.key];
     if (!items.length) return '';
     return `
       <details class="mb-4" open>
-        <summary class="cursor-pointer flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-${section.tone}-700 mb-2">
+        <summary class="cursor-pointer flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide ${section.tone} mb-2">
           <span>${section.key}</span>
-          <span class="flex items-center gap-1 text-slate-400">
+          <span class="flex items-center gap-1 text-dim">
             ${items.length}
             <svg viewBox="0 0 16 16" fill="currentColor" class="size-3 transition-transform group-open:rotate-180">
               <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
@@ -243,38 +217,38 @@ function renderUatDrawerItem(result) {
     const actual = cond.actual && cond.actual.length ? cond.actual.join(', ') : '—';
     const expected = cond.expected !== undefined ? JSON.stringify(cond.expected) : '—';
     return `
-      <div class="rounded border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+      <div class="rounded border border-line bg-surface px-3 py-2 text-xs text-muted">
         <div class="flex items-start justify-between gap-2">
           <div class="min-w-0">
-            <div class="break-words font-semibold text-slate-700">${escapeHtml(cond.path || '(root)')}</div>
-            <div class="text-[10px] uppercase tracking-wide text-slate-400">${escapeHtml(cond.source || 'payload')}</div>
+            <div class="break-words font-semibold text-fg">${escapeHtml(cond.path || '(root)')}</div>
+            <div class="text-[10px] uppercase tracking-wide text-dim">${escapeHtml(cond.source || 'payload')}</div>
           </div>
-          <span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">${escapeHtml(cond.operator)}</span>
+          <span class="pill shrink-0 font-mono text-2xs font-semibold">${escapeHtml(cond.operator)}</span>
         </div>
         <div class="mt-2 grid grid-cols-1 gap-1">
-          <div class="break-words"><span class="font-semibold text-slate-700">Expected</span> <span class="text-slate-500">•</span> ${escapeHtml(expected)}</div>
-          <div class="break-words"><span class="font-semibold text-slate-700">Actual</span> <span class="text-slate-500">•</span> ${escapeHtml(actual)}</div>
+          <div class="break-words"><span class="font-semibold text-fg">Expected</span> <span class="text-muted">•</span> ${escapeHtml(expected)}</div>
+          <div class="break-words"><span class="font-semibold text-fg">Actual</span> <span class="text-muted">•</span> ${escapeHtml(actual)}</div>
         </div>
       </div>
     `;
   }).join('');
   const conditionsList = (result.conditions && result.conditions.length)
-    ? `<div class="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-         <div class="text-[10px] uppercase tracking-wide text-slate-400 mb-2">Applies when</div>
+    ? `<div class="rounded border border-line bg-canvas px-3 py-2 text-xs text-muted">
+         <div class="text-[10px] uppercase tracking-wide text-dim mb-2">Applies when</div>
          <div class="space-y-2">
            ${(result.conditions || []).map(cond => {
              const expected = cond.expected !== undefined ? escapeHtml(String(cond.expected)) : '—';
              return `
-               <div class="rounded border border-slate-200 bg-white px-2 py-1.5">
+               <div class="rounded border border-line bg-surface px-2 py-1.5">
                  <div class="flex items-start justify-between gap-2">
                    <div class="min-w-0">
-                     <div class="break-words font-semibold text-slate-700">${escapeHtml(cond.path || '(root)')}</div>
-                     <div class="text-[10px] uppercase tracking-wide text-slate-400">${escapeHtml(cond.source || 'payload')}</div>
+                     <div class="break-words font-semibold text-fg">${escapeHtml(cond.path || '(root)')}</div>
+                     <div class="text-[10px] uppercase tracking-wide text-dim">${escapeHtml(cond.source || 'payload')}</div>
                    </div>
-                   <span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">${escapeHtml(cond.operator || 'exists')}</span>
+                   <span class="pill shrink-0 font-mono text-2xs font-semibold">${escapeHtml(cond.operator || 'exists')}</span>
                  </div>
                  <div class="mt-2 grid grid-cols-1 gap-1">
-                   <div class="break-words"><span class="font-semibold text-slate-700">Expected</span> <span class="text-slate-500">•</span> ${expected}</div>
+                   <div class="break-words"><span class="font-semibold text-fg">Expected</span> <span class="text-muted">•</span> ${expected}</div>
                  </div>
                </div>
              `;
@@ -283,22 +257,22 @@ function renderUatDrawerItem(result) {
        </div>`
     : '';
   const countBlock = result.count
-    ? `<div class="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-         <div class="text-[10px] uppercase tracking-wide text-slate-400">Count validation</div>
-         <div class="mt-1"><span class="font-semibold text-slate-700">Mode</span> <span class="text-slate-500">•</span> ${escapeHtml(result.count.count)}</div>
-         <div class="mt-1"><span class="font-semibold text-slate-700">Expected</span> <span class="text-slate-500">•</span> ${escapeHtml(String(result.count.expected))}</div>
-         <div class="mt-1"><span class="font-semibold text-slate-700">Actual</span> <span class="text-slate-500">•</span> ${escapeHtml(String(result.count.actual))}</div>
+    ? `<div class="rounded border border-line bg-canvas px-3 py-2 text-xs text-muted">
+         <div class="text-[10px] uppercase tracking-wide text-dim">Count validation</div>
+         <div class="mt-1"><span class="font-semibold text-fg">Mode</span> <span class="text-muted">•</span> ${escapeHtml(result.count.count)}</div>
+         <div class="mt-1"><span class="font-semibold text-fg">Expected</span> <span class="text-muted">•</span> ${escapeHtml(String(result.count.expected))}</div>
+         <div class="mt-1"><span class="font-semibold text-fg">Actual</span> <span class="text-muted">•</span> ${escapeHtml(String(result.count.actual))}</div>
        </div>`
     : '';
   return `
-    <details class="rounded border border-slate-200 bg-white p-3 group">
-      <summary class="cursor-pointer text-sm font-semibold text-slate-800 flex items-start justify-between gap-2">
+    <details class="rounded border border-line bg-surface p-3 group">
+      <summary class="cursor-pointer text-sm font-semibold text-fg flex items-start justify-between gap-2">
         <div class="w-[80%] pr-2 min-w-0">
           <div class="break-words">${escapeHtml(result.title)}</div>
-          ${result.description ? `<div class="text-xs font-normal text-slate-500 mt-1">${escapeHtml(result.description)}</div>` : ''}
+          ${result.description ? `<div class="text-xs font-normal text-muted mt-1">${escapeHtml(result.description)}</div>` : ''}
         </div>
         <span class="w-6 flex-shrink-0 text-right">
-          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 text-dim transition-transform group-open:rotate-180">
             <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z" clip-rule="evenodd" />
           </svg>
         </span>
@@ -313,7 +287,7 @@ function renderUatDrawerItem(result) {
 }
 
 /**
- * Open the UAT report modal for the active session.
+ * Open the Validation report modal for the active session.
  */
 export function openUatReport() {
   if (!elements.uatReportDialog) return;
@@ -326,19 +300,19 @@ export function openUatReport() {
   elements.uatReportMeta.textContent = `${session.site} · ${session.name || 'Untitled'} · ${formatTime(session.createdAt)}`;
 
   const summaryCard = `
-    <div class="rounded border border-slate-200 bg-white p-4 mb-4">
+    <div class="rounded border border-line bg-surface p-4 mb-4">
       <div class="text-sm font-semibold">Summary</div>
-      <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
-        <div>Total assertions: <span class="font-semibold text-slate-800">${summary.total}</span></div>
-        <div>Passed: <span class="font-semibold text-emerald-700">${summary.passed}</span></div>
-        <div>Failed: <span class="font-semibold text-rose-700">${summary.failed}</span></div>
-        <div>Requests evaluated: <span class="font-semibold text-slate-800">${summary.requests}</span></div>
+      <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-muted">
+        <div>Total assertions: <span class="font-semibold text-fg">${summary.total}</span></div>
+        <div>Passed: <span class="font-semibold text-ok">${summary.passed}</span></div>
+        <div>Failed: <span class="font-semibold text-danger">${summary.failed}</span></div>
+        <div>Requests evaluated: <span class="font-semibold text-fg">${summary.requests}</span></div>
       </div>
     </div>
   `;
 
   if (!results.length) {
-    setHTML(elements.uatReportBody, `${summaryCard}<div class=\"text-sm text-slate-500\">No UAT results for this session.</div>`);
+    setHTML(elements.uatReportBody, `${summaryCard}<div class=\"text-sm text-muted\">No validation results for this session.</div>`);
   } else {
     setHTML(elements.uatReportBody, `${summaryCard}${renderUatReportGroups(grouped)}`);
   }
@@ -347,7 +321,7 @@ export function openUatReport() {
 }
 
 /**
- * Collect UAT results and summary for a session.
+ * Collect Validation results and summary for a session.
  * @param {Array<object>} requests
  * @returns {{ results: Array<object>, summary: object }}
  */
@@ -385,7 +359,7 @@ function collectUatReportResults(requests) {
 }
 
 /**
- * Group UAT results by page path.
+ * Group Validation results by page path.
  * @param {Array<object>} results
  * @returns {Array<{ path: string, items: Array<object> }>}
  */
@@ -403,16 +377,16 @@ function groupResultsByPagePath(results) {
 }
 
 /**
- * Render grouped UAT report sections.
+ * Render grouped Validation report sections.
  * @param {Array<{ path: string, items: Array<object> }>} groups
  * @returns {string}
  */
 function renderUatReportGroups(groups) {
   return groups.map(group => `
     <div class="mb-4">
-      <div class="flex items-center justify-between text-xs font-semibold text-slate-600 mb-2">
+      <div class="flex items-center justify-between text-xs font-semibold text-muted mb-2">
         <span class="truncate">${escapeHtml(group.path)}</span>
-        <span class="text-slate-400">${group.items.length} result${group.items.length === 1 ? '' : 's'}</span>
+        <span class="text-dim">${group.items.length} result${group.items.length === 1 ? '' : 's'}</span>
       </div>
       ${group.items.map(renderUatReportCard).join('')}
     </div>
@@ -420,19 +394,19 @@ function renderUatReportGroups(groups) {
 }
 
 /**
- * Render a UAT report card.
+ * Render a Validation report card.
  * @param {object} item
  * @returns {string}
  */
 function renderUatReportCard(item) {
   const result = item.result;
-  const statusClass = result.status === 'passed' ? 'text-emerald-700' : 'text-rose-700';
+  const statusClass = result.status === 'passed' ? 'text-ok' : 'text-danger';
   const validationsToShow = (result.validations && result.validations.length) ? result.validations : [];
   const validationList = validationsToShow.map(cond => {
     const actual = cond.actual && cond.actual.length ? cond.actual.join(', ') : '—';
     const expected = cond.expected !== undefined ? JSON.stringify(cond.expected) : '—';
     return `
-      <li class="text-xs text-slate-600">
+      <li class="text-xs text-muted">
         <span class="font-semibold">${escapeHtml(cond.path || '(root)')}</span> · ${escapeHtml(cond.operator)} · expected ${escapeHtml(expected)} · actual ${escapeHtml(actual)}
       </li>
     `;
@@ -442,7 +416,7 @@ function renderUatReportCard(item) {
          ${result.conditions.map(cond => {
            const expected = cond.expected !== undefined ? ` ${escapeHtml(String(cond.expected))}` : '';
            return `
-             <li class="text-xs text-slate-500">
+             <li class="text-xs text-muted">
                Applies when ${escapeHtml(cond.path || '(root)')} ${escapeHtml(cond.operator)}${expected}
              </li>
            `;
@@ -451,11 +425,11 @@ function renderUatReportCard(item) {
     : '';
 
   const countBlock = result.count
-    ? `<div class="text-xs text-slate-600">Count ${escapeHtml(result.count.count)}: expected ${escapeHtml(String(result.count.expected))}, actual ${escapeHtml(String(result.count.actual))}</div>`
+    ? `<div class="text-xs text-muted">Count ${escapeHtml(result.count.count)}: expected ${escapeHtml(String(result.count.expected))}, actual ${escapeHtml(String(result.count.actual))}</div>`
     : '';
 
   return `
-    <div class="rounded border border-slate-200 bg-white p-4 mb-4">
+    <div class="rounded border border-line bg-surface p-4 mb-4">
       <div class="flex items-start justify-between gap-2">
         <div>
           <div class="text-sm font-semibold">${escapeHtml(result.title)}</div>
@@ -470,7 +444,7 @@ function renderUatReportCard(item) {
 }
 
 /**
- * Export UAT report as a printable PDF.
+ * Export Validation report as a printable PDF.
  */
 export function exportUatPdf() {
   const session = state.sessions.find(s => s.id === state.settings?.selectedSessionId);
@@ -493,12 +467,12 @@ export function exportUatPdf() {
   `;
   const body = results.length
     ? `${summaryBlock}${renderUatReportGroups(grouped)}`
-    : `${summaryBlock}<div style="color:#64748b;font-size:14px;">No UAT results for this session.</div>`;
+    : `${summaryBlock}<div style="color:#64748b;font-size:14px;">No validation results for this session.</div>`;
 
   doc.document.write(`<!doctype html>
     <html>
       <head>
-        <title>Launch Observer UAT Report</title>
+        <title>Launch Observer Validation Report</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 32px; color: #0f172a; }
           h1 { font-size: 22px; margin-bottom: 4px; }
@@ -519,12 +493,12 @@ export function exportUatPdf() {
             </svg>
           </div>
           <div>
-            <div class="title">Launch Observer — UAT Report</div>
+            <div class="title">Launch Observer — Validation Report</div>
             <div class="site">Site: ${escapeHtml(session.site)}</div>
           </div>
         </div>
         <div class="meta">${escapeHtml(session.name || 'Untitled')} · ${escapeHtml(formatTime(session.createdAt))}</div>
-        ${body.replaceAll('class="rounded border border-slate-200 bg-white p-4 mb-4"', 'class="card"')}
+        ${body.replaceAll('class="rounded border border-line bg-surface p-4 mb-4"', 'class="card"')}
       </body>
     </html>`);
   doc.document.close();

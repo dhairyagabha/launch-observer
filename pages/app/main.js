@@ -1,14 +1,20 @@
 import { api, elements, state } from './state.js';
 import { DEFAULT_ALLOWLIST, buildAllowlistFromServices, createAllowlistRow, dedupeDomains, getCustomAllowlistEntries, getSelectedServiceIds, renderAllowlistFields, renderAllowlistServices } from './allowlist.js';
 import { applySearch, selectRequest } from './requests.js';
-import { deleteSession, getSelectedSite, getSelectedTabId, openSessionDialog, renderSessions, selectSession, updateSessionSummary, updateUatToggle } from './sessions.js';
+import { deleteSession, getSelectedSite, getSelectedTabId, openSessionDialog, renderSessions, selectSession, siteOptionsHtml, updateSessionSummary, updateUatToggle } from './sessions.js';
 import { setActiveTab, toggleSidebar, toast } from './ui.js';
 import { initTour } from './tour.js';
 import { buildTemplateDownload, closeUatDetail, exportUatPdf, openUatReport, closeUatDrawer } from './uat.js';
-import { escapeHtml, setHTML } from './utils.js';
+import { escapeHtml, setHTML, debounce, rafThrottle } from './utils.js';
 import { validateUatConfig } from '../../lib/uat.js';
+import { initWorkbench, refreshChrome } from './workbench.js';
 
 let pendingUatConfig = null;
+
+const MAX_UAT_FILE_BYTES = 2 * 1024 * 1024;
+
+/** The sessions sidebar only shows per-session counts; once a frame is enough. */
+const scheduleRenderSessions = rafThrottle(() => renderSessions());
 
 /**
  * Update persisted settings via background.
@@ -49,6 +55,7 @@ function refreshState() {
     updateDebugBadge();
     updateSessionExpiredBanner();
     updateSessionSummary();
+    refreshChrome();
   });
 }
 
@@ -57,9 +64,10 @@ if (elements.closeSidebar) elements.closeSidebar.addEventListener('click', () =>
 if (elements.mobileOverlay) elements.mobileOverlay.addEventListener('click', () => toggleSidebar(false));
 
 if (elements.search) {
+  const runSearch = debounce(() => applySearch(), 150);
   elements.search.addEventListener('input', event => {
     state.search = event.target.value || '';
-    applySearch();
+    runSearch();
   });
 }
 
@@ -81,7 +89,7 @@ if (elements.manageUat) {
   elements.manageUat.addEventListener('click', () => {
     const sites = Array.from(new Set(state.sites.filter(Boolean))).sort();
     if (elements.uatSiteSelect) {
-      setHTML(elements.uatSiteSelect, sites.map(site => `<option value="${site}">${site}</option>`).join('') || '<option value=\"\">Select a site</option>');
+      setHTML(elements.uatSiteSelect, siteOptionsHtml(sites));
       const currentSite = state.sessions.find(s => s.id === state.settings?.selectedSessionId)?.site;
       if (currentSite && sites.includes(currentSite)) elements.uatSiteSelect.value = currentSite;
     }
@@ -119,6 +127,18 @@ if (elements.uatFileInput) {
   elements.uatFileInput.addEventListener('change', async event => {
     const file = event.target.files?.[0];
     if (!file) return;
+    // Imported configs are persisted whole; a stray large file would other-
+    // wise be parsed, stored, and re-read on every background start.
+    if (file.size > MAX_UAT_FILE_BYTES) {
+      pendingUatConfig = null;
+      toast('File too large', `Validation rules files are limited to ${Math.round(MAX_UAT_FILE_BYTES / (1024 * 1024))} MB.`);
+      if (elements.uatFileStatus) {
+        elements.uatFileStatus.textContent = 'File too large. Validation rules files are limited to 2 MB.';
+        elements.uatFileStatus.classList.remove('hidden', 'text-ok');
+        elements.uatFileStatus.classList.add('text-danger');
+      }
+      return;
+    }
     try {
       const text = await file.text();
       pendingUatConfig = JSON.parse(text);
@@ -130,16 +150,16 @@ if (elements.uatFileInput) {
           elements.uatFileErrors.classList.remove('hidden');
         }
         if (elements.uatFileStatus) {
-          elements.uatFileStatus.textContent = 'UAT file failed validation.';
+          elements.uatFileStatus.textContent = 'Rules file failed validation.';
           elements.uatFileStatus.classList.remove('hidden');
-          elements.uatFileStatus.classList.remove('text-emerald-600');
-          elements.uatFileStatus.classList.add('text-rose-600');
+          elements.uatFileStatus.classList.remove('text-ok');
+          elements.uatFileStatus.classList.add('text-danger');
         }
       } else if (elements.uatFileStatus) {
-        elements.uatFileStatus.textContent = 'UAT file ready. Click Import to apply.';
+        elements.uatFileStatus.textContent = 'Rules file ready. Click Import to apply.';
         elements.uatFileStatus.classList.remove('hidden');
-        elements.uatFileStatus.classList.remove('text-rose-600');
-        elements.uatFileStatus.classList.add('text-emerald-600');
+        elements.uatFileStatus.classList.remove('text-danger');
+        elements.uatFileStatus.classList.add('text-ok');
         if (elements.uatFileErrors) {
           elements.uatFileErrors.textContent = '';
           elements.uatFileErrors.classList.add('hidden');
@@ -151,8 +171,8 @@ if (elements.uatFileInput) {
       if (elements.uatFileStatus) {
         elements.uatFileStatus.textContent = 'Invalid JSON file. Please upload a valid assertion config.';
         elements.uatFileStatus.classList.remove('hidden');
-        elements.uatFileStatus.classList.remove('text-emerald-600');
-        elements.uatFileStatus.classList.add('text-rose-600');
+        elements.uatFileStatus.classList.remove('text-ok');
+        elements.uatFileStatus.classList.add('text-danger');
       }
       if (elements.uatFileErrors) {
         elements.uatFileErrors.textContent = '';
@@ -180,10 +200,10 @@ if (elements.uatImport) {
         elements.uatFileErrors.classList.remove('hidden');
       }
       if (elements.uatFileStatus) {
-        elements.uatFileStatus.textContent = 'UAT file failed validation.';
+        elements.uatFileStatus.textContent = 'Rules file failed validation.';
         elements.uatFileStatus.classList.remove('hidden');
-        elements.uatFileStatus.classList.remove('text-emerald-600');
-        elements.uatFileStatus.classList.add('text-rose-600');
+        elements.uatFileStatus.classList.remove('text-ok');
+        elements.uatFileStatus.classList.add('text-danger');
       }
       return;
     }
@@ -194,7 +214,7 @@ if (elements.uatImport) {
     api.runtime.sendMessage({ type: 'setUatConfig', site, config: pendingUatConfig }, response => {
       if (response?.uatConfigs) {
         state.uatConfigs = response.uatConfigs;
-        toast('UAT assertions updated', `Loaded ${pendingUatConfig.assertions?.length || 0} assertions.`);
+        toast('Validation rules updated', `Loaded ${pendingUatConfig.assertions?.length || 0} assertions.`);
         pendingUatConfig = null;
         if (elements.uatFileInput) elements.uatFileInput.value = '';
         if (elements.uatFileStatus) {
@@ -210,13 +230,12 @@ if (elements.uatImport) {
           elements.uatSiteInput.value = '';
         }
         if (elements.uatSiteSelect) {
-          const sites = Array.from(new Set(state.sites.filter(Boolean))).sort();
-          setHTML(elements.uatSiteSelect, sites.map(value => `<option value="${value}">${value}</option>`).join('') || '<option value=\"\">Select a site</option>');
+          setHTML(elements.uatSiteSelect, siteOptionsHtml(state.sites));
           if (site) elements.uatSiteSelect.value = site;
         }
         if (elements.uatDialog) elements.uatDialog.close();
       } else {
-        toast('Failed to update UAT assertions');
+        toast('Could not update validation rules');
       }
     });
   });
@@ -276,7 +295,7 @@ if (elements.uatCloseDrawer) {
 }
 
 /**
- * Render the UAT assertions drawer contents.
+ * Render the validation rules drawer contents.
  * @param {string} site
  * @param {object|null} config
  */
@@ -285,22 +304,22 @@ function renderUatAssertionsDrawer(site, config) {
   const assertions = config?.assertions || [];
   const globalConfig = config?.global || null;
   if (!site) {
-    setHTML(elements.uatAssertionsBody, '<div class="text-sm text-slate-500">Select a site to view assertions.</div>');
+    setHTML(elements.uatAssertionsBody, '<div class="text-sm text-muted">Select a site to view assertions.</div>');
     return;
   }
   if (!assertions.length && !globalConfig) {
-    setHTML(elements.uatAssertionsBody, '<div class="text-sm text-slate-500">No assertions imported for this site yet.</div>');
+    setHTML(elements.uatAssertionsBody, '<div class="text-sm text-muted">No assertions imported for this site yet.</div>');
     return;
   }
   const renderList = (list) => list.map(cond => {
     const source = escapeHtml(cond.source || 'payload');
     const path = escapeHtml(cond.path || '');
     const operator = escapeHtml(cond.operator || 'exists');
-    const expected = cond.expected !== undefined ? `<span class="text-slate-500">"${escapeHtml(String(cond.expected))}"</span>` : '';
+    const expected = cond.expected !== undefined ? `<span class="text-muted">"${escapeHtml(String(cond.expected))}"</span>` : '';
     return `
-      <div class="rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700">
-        <div><span class="font-semibold">${source}</span> · <span class="text-slate-500">${path || 'raw'}</span></div>
-        <div class="text-slate-600">${operator}${expected ? ` · ${expected}` : ''}</div>
+      <div class="rounded border border-line bg-canvas px-2 py-1.5 text-xs text-fg">
+        <div><span class="font-semibold">${source}</span> · <span class="text-muted">${path || 'raw'}</span></div>
+        <div class="text-muted">${operator}${expected ? ` · ${expected}` : ''}</div>
       </div>
     `;
   }).join('');
@@ -314,28 +333,28 @@ function renderUatAssertionsDrawer(site, config) {
     const serviceChips = [
       ...includeServices.map(id => ({
         id,
-        classes: 'rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700'
+        classes: 'pill-pass'
       })),
       ...excludeServices.map(id => ({
         id,
-        classes: 'rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700'
+        classes: 'pill-fail'
       }))
     ].map(item => `<span class="${item.classes}">${escapeHtml(item.id)}</span>`).join('');
     const includeBlock = includeConditions.length
       ? `<div class="mt-3">
-          <div class="text-[10px] uppercase tracking-wide text-slate-400 mb-2">Include when (all)</div>
+          <div class="text-[10px] uppercase tracking-wide text-dim mb-2">Include when (all)</div>
           <div class="space-y-2">${renderList(includeConditions)}</div>
         </div>`
       : '';
     const excludeBlock = excludeConditions.length
       ? `<div class="mt-3">
-          <div class="text-[10px] uppercase tracking-wide text-slate-400 mb-2">Exclude when (any)</div>
+          <div class="text-[10px] uppercase tracking-wide text-dim mb-2">Exclude when (any)</div>
           <div class="space-y-2">${renderList(excludeConditions)}</div>
         </div>`
       : '';
     return `
-      <div class="rounded border border-slate-200 bg-white p-3 mb-3">
-        <div class="flex items-center justify-between text-sm font-semibold text-slate-800">
+      <div class="rounded border border-line bg-surface p-3 mb-3">
+        <div class="flex items-center justify-between text-sm font-semibold text-fg">
           <span>Global gates</span>
         </div>
         ${serviceChips ? `<div class="mt-2 flex flex-wrap gap-2">${serviceChips}</div>` : ''}
@@ -347,30 +366,30 @@ function renderUatAssertionsDrawer(site, config) {
 
   setHTML(elements.uatAssertionsBody, `${globalBlock}${assertions.map(item => {
     const title = item.title || item.id || 'Assertion';
-    const description = item.description ? `<div class="mt-1 text-xs text-slate-500">${escapeHtml(item.description)}</div>` : '';
-    const scope = item.scope ? `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">${escapeHtml(item.scope)}</span>` : '';
-    const logic = item.conditionsLogic ? `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">conditions: ${escapeHtml(item.conditionsLogic)}</span>` : '';
+    const description = item.description ? `<div class="mt-1 text-xs text-muted">${escapeHtml(item.description)}</div>` : '';
+    const scope = item.scope ? `<span class="pill font-mono text-2xs font-semibold">${escapeHtml(item.scope)}</span>` : '';
+    const logic = item.conditionsLogic ? `<span class="pill font-mono text-2xs font-semibold">conditions: ${escapeHtml(item.conditionsLogic)}</span>` : '';
     const chips = (scope || logic) ? `<div class="mt-2 flex gap-2 flex-wrap">${scope}${logic}</div>` : '';
     const count = item.count && item.value !== undefined
-      ? `<div class="mt-2 text-xs text-slate-600"><span class="font-semibold text-slate-700">Count</span> <span class="text-slate-400">•</span> ${escapeHtml(item.count)} = ${escapeHtml(String(item.value))}</div>`
+      ? `<div class="mt-2 text-xs text-muted"><span class="font-semibold text-fg">Count</span> <span class="text-dim">•</span> ${escapeHtml(item.count)} = ${escapeHtml(String(item.value))}</div>`
       : '';
     const conditions = Array.isArray(item.conditions) && item.conditions.length
       ? `<div class="mt-3">
-          <div class="text-[10px] uppercase tracking-wide text-slate-400 mb-2">Applies when</div>
+          <div class="text-[10px] uppercase tracking-wide text-dim mb-2">Applies when</div>
           <div class="space-y-2">${renderList(item.conditions)}</div>
         </div>`
       : '';
     const validations = Array.isArray(item.validations) && item.validations.length
       ? `<div class="mt-3">
-          <div class="text-[10px] uppercase tracking-wide text-slate-400 mb-2">Validations (all must pass)</div>
+          <div class="text-[10px] uppercase tracking-wide text-dim mb-2">Validations (all must pass)</div>
           <div class="space-y-2">${renderList(item.validations)}</div>
         </div>`
       : '';
     return `
-      <details class="rounded border border-slate-200 bg-white p-3 mb-3">
-        <summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-slate-800">
+      <details class="rounded border border-line bg-surface p-3 mb-3">
+        <summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-fg">
           <span>${escapeHtml(title)}</span>
-          <svg viewBox="0 0 16 16" fill="currentColor" class="size-4 text-slate-400">
+          <svg viewBox="0 0 16 16" fill="currentColor" class="size-4 text-dim">
             <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
           </svg>
         </summary>
@@ -387,7 +406,7 @@ function renderUatAssertionsDrawer(site, config) {
 }
 
 /**
- * Open the UAT assertions drawer.
+ * Open the validation rules drawer.
  */
 function openUatAssertionsDrawer() {
   const activeSite = state.sessions.find(s => s.id === state.settings?.selectedSessionId)?.site || '';
@@ -412,7 +431,7 @@ function openUatAssertionsDrawer() {
 }
 
 /**
- * Close the UAT assertions drawer.
+ * Close the validation rules drawer.
  */
 function closeUatAssertionsDrawer() {
   elements.uatAssertionsDrawer?.classList.add('translate-x-full');
@@ -437,7 +456,7 @@ if (elements.uatAssertionsDownload) {
       || state.sessions.find(s => s.id === state.settings?.selectedSessionId)?.site
       || '';
     if (!site || !state.uatConfigs?.[site]) {
-      toast('No UAT config available');
+      toast('No validation rules available');
       return;
     }
     const blob = new Blob([JSON.stringify(state.uatConfigs[site], null, 2)], { type: 'application/json' });
@@ -463,12 +482,13 @@ if (elements.uatAssertionsSite) {
   });
 }
 
-if (elements.allowlistCancel) {
-  elements.allowlistCancel.addEventListener('click', () => {
+// The dialog has both a header close button and a footer Cancel.
+[elements.allowlistCancel, elements.allowlistCancel2].forEach(button => {
+  button?.addEventListener('click', () => {
     state.allowlistSelectedServiceIds = null;
     elements.allowlistDialog.close();
   });
-}
+});
 
 if (elements.allowlistSave) {
   elements.allowlistSave.addEventListener('click', () => {
@@ -522,11 +542,11 @@ if (elements.newSession) {
   });
 }
 
-if (elements.sessionCancel) {
-  elements.sessionCancel.addEventListener('click', () => {
+[elements.sessionCancel, elements.sessionCancel2].forEach(button => {
+  button?.addEventListener('click', () => {
     elements.sessionDialog.close();
   });
-}
+});
 
 if (elements.sessionSave) {
   elements.sessionSave.addEventListener('click', () => {
@@ -607,7 +627,7 @@ if (elements.clearSessions) {
 if (elements.clearData) {
   elements.clearData.addEventListener('click', () => {
     if (elements.confirmTitle) elements.confirmTitle.textContent = 'Clear all data?';
-    if (elements.confirmBody) elements.confirmBody.textContent = 'This will delete sessions, requests, sites, and UAT assertions. This action cannot be undone.';
+    if (elements.confirmBody) elements.confirmBody.textContent = 'This will delete sessions, requests, sites, and validation rules. This action cannot be undone.';
     elements.confirmDialog.dataset.action = 'clear-all-data';
     elements.confirmDialog.showModal();
   });
@@ -727,13 +747,13 @@ if (elements.tabsSelect) {
 
 document.addEventListener('input', event => {
   if (!(event.target instanceof HTMLInputElement)) return;
-  if (event.target.id !== 'allowlist-services-search-inner') return;
+  if (event.target.id !== 'allowlist-service-search') return;
   const value = event.target.value;
   state.allowlistServiceSearch = value;
   const allowlist = Array.isArray(state.settings?.allowlist) ? state.settings.allowlist : DEFAULT_ALLOWLIST;
   renderAllowlistServices(allowlist);
   requestAnimationFrame(() => {
-    const input = document.getElementById('allowlist-services-search-inner');
+    const input = document.getElementById('allowlist-service-search');
     if (!input) return;
     input.value = value;
     input.focus();
@@ -743,32 +763,44 @@ document.addEventListener('input', event => {
 
 api.runtime.onMessage.addListener(message => {
   if (!message || !message.type) return;
-  if (message.type === 'requestAdded') {
-    state.requests.push(message.request);
-    const maxEntries = state.settings?.maxEntries || 2000;
-    if (state.requests.length > maxEntries) {
-      const overflow = state.requests.length - maxEntries;
-      if (overflow > 0) state.requests.splice(0, overflow);
-      const sessionKey = message.request?.sessionId || 'global';
-      if (!state.requestCapNotified[sessionKey]) {
-        state.requestCapNotified[sessionKey] = true;
-        toast('Request limit reached', `Oldest requests were trimmed to keep ${maxEntries} entries.`);
+  if (message.type === 'requestsChanged') {
+    const added = message.added || [];
+    const updated = message.updated || [];
+    if (added.length) {
+      state.requests.push(...added);
+      const maxEntries = state.settings?.maxEntries || 2000;
+      if (state.requests.length > maxEntries) {
+        state.requests.splice(0, state.requests.length - maxEntries);
+        const sessionKey = added[added.length - 1]?.sessionId || 'global';
+        if (!state.requestCapNotified[sessionKey]) {
+          state.requestCapNotified[sessionKey] = true;
+          toast('Request limit reached', `Oldest requests were trimmed to keep ${maxEntries} entries.`);
+        }
+      }
+    }
+    let selectedChanged = false;
+    if (updated.length) {
+      // One pass over the list instead of an indexOf scan per updated request.
+      const byId = new Map(updated.map(req => [req.id, req]));
+      for (let i = 0; i < state.requests.length; i += 1) {
+        const replacement = byId.get(state.requests[i].id);
+        if (!replacement) continue;
+        state.requests[i] = replacement;
+        if (state.selectedId === replacement.id) selectedChanged = true;
       }
     }
     applySearch();
-    renderSessions();
+    refreshChrome();
+    if (added.length) scheduleRenderSessions();
+    if (selectedChanged) selectRequest(state.selectedId);
   }
-  if (message.type === 'requestUpdated') {
-    const idx = state.requests.findIndex(r => r.id === message.request.id);
-    if (idx !== -1) state.requests[idx] = message.request;
-    applySearch();
-    if (state.selectedId === message.request.id) {
-      selectRequest(state.selectedId);
-    }
+  if (message.type === 'storageTrimmed') {
+    toast('Storage limit reached', `Oldest requests were dropped; ${message.kept} kept.`);
   }
   if (message.type === 'settingsUpdated') {
     state.settings = message.settings;
     updateDebugBadge();
+    refreshChrome();
   }
   if (message.type === 'uatConfigsUpdated') {
     state.uatConfigs = message.uatConfigs || {};
@@ -795,6 +827,7 @@ api.runtime.onMessage.addListener(message => {
     applySearch();
     updateSessionSummary();
     updateSessionExpiredBanner();
+    refreshChrome();
   }
   if (message.type === 'sessionIdle') {
     elements.sessionIdleDialog?.showModal();
@@ -856,14 +889,13 @@ window.LaunchObserverDebug = {
 function setHelpTab(tabId) {
   document.querySelectorAll('.help-tab').forEach(button => {
     const isActive = button.getAttribute('data-help-tab') === tabId;
-    button.classList.toggle('border-slate-900', isActive);
-    button.classList.toggle('text-slate-900', isActive);
-    button.classList.toggle('border-transparent', !isActive);
-    if (!isActive) {
-      button.classList.add('text-slate-500');
+    // .tab-button draws the active underline from aria-current.
+    if (isActive) {
+      button.setAttribute('aria-current', 'page');
     } else {
-      button.classList.remove('text-slate-500');
+      button.removeAttribute('aria-current');
     }
+    button.classList.toggle('text-muted', !isActive);
   });
   document.querySelectorAll('.help-panel').forEach(panel => {
     panel.classList.toggle('hidden', panel.id !== tabId);
@@ -893,3 +925,6 @@ function updateSessionExpiredBanner() {
     elements.sessionExpiredBanner.classList.add('hidden');
   }
 }
+
+initWorkbench();
+refreshChrome();
