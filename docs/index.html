@@ -520,7 +520,7 @@
         <a href="#features">Features</a>
         <a href="#workflow">How it works</a>
         <a href="#screens">Screens</a>
-        <a href="uat.html">UAT Docs</a>
+        <a href="validation-rules.html">Validation Rules</a>
       </div>
     </nav>
 
@@ -541,7 +541,7 @@
         <div class="hero-meta">
           <div class="meta-pill">Session-based tracking</div>
           <div class="meta-pill">Decoded payloads</div>
-          <div class="meta-pill">UAT validations</div>
+          <div class="meta-pill">Validation rules</div>
         </div>
       </div>
       <div class="hero-card">
@@ -553,7 +553,7 @@
             <button class="carousel-dot active" data-index="0" aria-label="Show overview"></button>
             <button class="carousel-dot" data-index="1" aria-label="Show getting started"></button>
             <button class="carousel-dot" data-index="2" aria-label="Show common tasks"></button>
-            <button class="carousel-dot" data-index="3" aria-label="Show UAT assertions"></button>
+            <button class="carousel-dot" data-index="3" aria-label="Show validation results"></button>
             <button class="carousel-dot" data-index="4" aria-label="Show troubleshooting"></button>
           </div>
         </div>
@@ -577,8 +577,8 @@
           <p>Create named sessions, organize by site, and return to any capture later without losing context.</p>
         </div>
         <div class="feature-card">
-          <h3>UAT assertions</h3>
-          <p>Import per-site validation rules, see pass/fail badges on requests, and export a shareable UAT report.</p>
+          <h3>Validation rules</h3>
+          <p>Import per-site validation rules, see pass/fail badges on requests, and export a shareable validation report.</p>
         </div>
         <div class="feature-card">
           <h3>WebSDK payload capture</h3>
@@ -611,8 +611,8 @@
         </div>
         <div class="workflow-step">
           <span>Step 3</span>
-          <h3>Validate with UAT</h3>
-          <p>Import your UAT assertion JSON for the site and enable validations when starting a session.</p>
+          <h3>Run validations</h3>
+          <p>Import your validation rules JSON for the site and enable validations when starting a session.</p>
         </div>
         <div class="workflow-step">
           <span>Step 4</span>
@@ -622,9 +622,9 @@
       </div>
     </section>
 
-    <section id="uat" class="section">
-      <h2 class="section-title">UAT assertions, explained</h2>
-      <p class="section-sub">UAT assertions are JSON rules that verify your analytics data. Each assertion includes one or more conditions and optional page-level count checks, plus optional global gates to include or exclude services.</p>
+    <section id="validation-rules" class="section">
+      <h2 class="section-title">Validation rules, explained</h2>
+      <p class="section-sub">Validation rules are a JSON file of checks that verify your analytics data. Each rule in the <code>assertions</code> array combines one or more conditions with optional page-level count checks, plus optional global gates to include or exclude services.</p>
       <p class="section-sub">Service IDs include: adobe-edge, adobe-analytics, google-analytics, google-ads, meta, tiktok, linkedin, pinterest, snapchat, x, microsoft-ads, baidu, demandbase, hotjar, segment, mixpanel, amplitude.</p>
       <div class="feature-grid">
         <div class="feature-card">
@@ -701,7 +701,7 @@
         ·
         <a href="#workflow">How it works</a>
         ·
-        <a href="uat.html">UAT Docs</a>
+        <a href="validation-rules.html">Validation Rules</a>
         ·
         <a href="privacy.html">Privacy</a>
       </div>

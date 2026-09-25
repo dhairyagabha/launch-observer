@@ -354,7 +354,7 @@ pages/
     utils.js              formatting helpers
 scripts/                  build and preview scripts
 tests/                    node --test suites (jsdom for UI)
-docs/                     GitHub Pages site (index.html, privacy.html, uat.html)
+docs/                     GitHub Pages site (index.html, privacy.html, validation-rules.html)
 ```
 
 The UI entry point is `pages/app/main.js`, loaded as an ES module.
@@ -388,4 +388,4 @@ To publish to AMO, set a permanent add-on ID in `manifest.firefox.json` under `b
 
 ## Documentation site
 
-The GitHub Pages site lives in `docs/`, with the landing page at `docs/index.html` and the privacy policy at `docs/privacy.html`.
+The GitHub Pages site lives in `docs/`, with the landing page at `docs/index.html`, the validation-rules guide at `docs/validation-rules.html`, and the privacy policy at `docs/privacy.html`. `docs/uat.html` is a redirect kept for links published under the old name.
